@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:unit": "jest unit",
+    "test:int": "jest int"
   },
   "author": "",
   "license": "ISC",

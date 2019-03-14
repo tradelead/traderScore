@@ -12,12 +12,18 @@ module.exports = class IngressTraderExchange {
     ingressWithdrawal,
     exchangeService,
     exchangeWatchRepo,
+    orderRepo,
+    transferRepo,
+    exchangeActivityLimitPerFetch,
   }) {
     this.ingressDeposit = ingressDeposit;
     this.ingressFilledOrder = ingressFilledOrder;
     this.ingressWithdrawal = ingressWithdrawal;
     this.exchangeService = exchangeService;
     this.exchangeWatchRepo = exchangeWatchRepo;
+    this.orderRepo = orderRepo;
+    this.transferRepo = transferRepo;
+    this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.descSort = (a, b) => b.time - a.time;
   }
 
@@ -35,28 +41,69 @@ module.exports = class IngressTraderExchange {
 
     await this.exchangeWatchRepo.add({ traderID, exchangeID });
 
-    const filledOrdersPromise = this.exchangeService.getFilledOrders();
-    const depositsPromise = this.exchangeService.getDeposits();
-    const withdrawalsPromise = this.exchangeService.getWithdrawals();
+    const limit = this.exchangeActivityLimitPerFetch;
 
-    let filledOrders = await filledOrdersPromise;
-    filledOrders = filledOrders.map(order => Object.assign({}, order, { type: 'order' }));
+    const activity = [];
+    let ordersLeft = 0;
+    let depositsLeft = 0;
+    let withdrawalsLeft = 0;
 
-    let deposits = await depositsPromise;
-    deposits = deposits.map(deposit => Object.assign({}, deposit, { type: 'deposit' }));
+    await Promise.all([
+      (async () => {
+        const lastOrders = await this.orderRepo.find({ traderID, limit: 1, sort: 'desc' });
+        const orderStart = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
+        let filledOrders = await this.exchangeService.getFilledOrders({
+          traderID,
+          limit,
+          startTime: orderStart,
+        });
+        filledOrders = filledOrders.map(order => Object.assign({}, order, { type: 'order' }));
 
-    let withdrawals = await withdrawalsPromise;
-    withdrawals = withdrawals.map(withdrawal => Object.assign({}, withdrawal, { type: 'withdrawal' }));
+        ordersLeft = filledOrders.length;
+        activity.push(...filledOrders);
+      })(),
 
-    const initialActivity = [...filledOrders, ...deposits, ...withdrawals];
-    initialActivity.sort(this.descSort);
+      (async () => {
+        const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
+        const depositStart = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
+        let deposits = await this.exchangeService.getDeposits({
+          traderID,
+          limit,
+          startTime: depositStart,
+        });
+        deposits = deposits.map(deposit => Object.assign({}, deposit, { type: 'deposit' }));
+
+        depositsLeft = deposits.length;
+        activity.push(...deposits);
+      })(),
+
+      (async () => {
+        const lastWithdraws = await this.transferRepo.findWithdrawals({ traderID, limit: 1, sort: 'desc' });
+        const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
+        const withdrawStart = (hasWithdraws ? lastWithdraws[0].time : 0);
+        let withdrawals = await this.exchangeService.getWithdrawals({
+          traderID,
+          limit,
+          startTime: withdrawStart,
+        });
+        withdrawals = withdrawals.map(withdrawal => Object.assign({}, withdrawal, { type: 'withdrawal' }));
+
+        withdrawalsLeft = withdrawals.length;
+        activity.push(...withdrawals);
+      })(),
+    ]);
+
+    activity.sort(this.descSort);
 
     await this.ingressActivity({
-      activity: initialActivity,
-      ordersLeft: filledOrders.length,
-      depositsLeft: deposits.length,
-      withdrawalsLeft: withdrawals.length,
+      activity,
+      ordersLeft,
+      depositsLeft,
+      withdrawalsLeft,
+      traderID,
     });
+
+    return true;
   }
 
   async ingressActivity({
@@ -64,6 +111,7 @@ module.exports = class IngressTraderExchange {
     ordersLeft,
     depositsLeft,
     withdrawalsLeft,
+    traderID,
   }) {
     if (ordersLeft === 0 && depositsLeft === 0 && withdrawalsLeft === 0) {
       return;
@@ -87,18 +135,20 @@ module.exports = class IngressTraderExchange {
     }
 
     let additionalItems = [];
+    const startTime = item.time;
     let type = '';
-    if (ordersLeftNew === 0) {
+    const limit = this.exchangeActivityLimitPerFetch;
+    if (ordersLeftNew === 0 && ordersLeft !== 0) {
       type = 'order';
-      additionalItems = await this.exchangeService.getFilledOrders();
+      additionalItems = await this.exchangeService.getFilledOrders({ traderID, limit, startTime });
       ordersLeftNew = additionalItems.length;
-    } else if (depositsLeftNew === 0) {
+    } else if (depositsLeftNew === 0 && depositsLeft !== 0) {
       type = 'deposit';
-      additionalItems = await this.exchangeService.getDeposits();
+      additionalItems = await this.exchangeService.getDeposits({ traderID, limit, startTime });
       depositsLeftNew = additionalItems.length;
-    } else if (withdrawalsLeftNew === 0) {
+    } else if (withdrawalsLeftNew === 0 && withdrawalsLeft !== 0) {
       type = 'withdrawal';
-      additionalItems = await this.exchangeService.getWithdrawals();
+      additionalItems = await this.exchangeService.getWithdrawals({ traderID, limit, startTime });
       withdrawalsLeftNew = additionalItems.length;
     }
 
@@ -108,6 +158,7 @@ module.exports = class IngressTraderExchange {
       ordersLeft: ordersLeftNew,
       depositsLeft: depositsLeftNew,
       withdrawalsLeft: withdrawalsLeftNew,
+      traderID,
     });
   }
 
