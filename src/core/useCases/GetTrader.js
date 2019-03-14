@@ -2,7 +2,7 @@ const Joi = require('joi');
 
 const traderIDSchema = Joi.string().required().label('Trader ID');
 
-module.exports = class IngressDeposit {
+module.exports = class GetTrader {
   constructor({ traderRepo }) {
     this.traderRepo = traderRepo;
   }
