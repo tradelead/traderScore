@@ -1,0 +1,10 @@
+{
+  "extends": ["airbnb", "plugin:jest/recommended"],
+  "plugins": ["jest"],
+  "rules": {
+    "func-names": ["error", "never"]
+  },
+  "env": {
+    "jest/globals": true
+  }
+}
