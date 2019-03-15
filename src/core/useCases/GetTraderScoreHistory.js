@@ -7,8 +7,8 @@ const requestSchema = Joi.object().keys({
 });
 
 module.exports = class GetTraderScoreHistory {
-  constructor({ traderRepo }) {
-    this.traderRepo = traderRepo;
+  constructor({ traderScoreRepo }) {
+    this.traderScoreRepo = traderScoreRepo;
   }
 
   async execute(req) {
@@ -23,14 +23,14 @@ module.exports = class GetTraderScoreHistory {
 
     const { traderID, startTime, endTime } = value;
 
-    const scoreHistories = await this.traderRepo.getTradersScoreHistories([{
+    const scoreHistories = await this.traderScoreRepo.getTradersScoreHistories([{
       traderID,
       startTime,
       endTime,
     }]);
 
     if (!Array.isArray(scoreHistories)) {
-      throw new Error('Unexpected response from traderRepo.getTradersScoreHistories');
+      throw new Error('Unexpected response from traderScoreRepo.getTradersScoreHistories');
     }
 
     return (scoreHistories.length === 1 ? scoreHistories[0] : null);

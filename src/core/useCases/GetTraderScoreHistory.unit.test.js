@@ -11,20 +11,20 @@ let deps = {};
 
 beforeEach(() => {
   deps = {
-    traderRepo: {
+    traderScoreRepo: {
       getTradersScoreHistories: sinon.stub(),
     },
   };
 
-  deps.traderRepo.getTradersScoreHistories.resolves([]);
+  deps.traderScoreRepo.getTradersScoreHistories.resolves([]);
 });
 
-describe('traderRepo.getTradersScoreHistories', () => {
+describe('traderScoreRepo.getTradersScoreHistories', () => {
   test('called once', async () => {
     const useCase = new GetTraderScoreHistory(deps);
     await useCase.execute(defaultReq);
 
-    sinon.assert.callCount(deps.traderRepo.getTradersScoreHistories, 1);
+    sinon.assert.callCount(deps.traderScoreRepo.getTradersScoreHistories, 1);
   });
 
   test('called with correct params', async () => {
@@ -36,22 +36,22 @@ describe('traderRepo.getTradersScoreHistories', () => {
       startTime: defaultReq.startTime,
       endTime: defaultReq.endTime,
     }];
-    sinon.assert.calledWithMatch(deps.traderRepo.getTradersScoreHistories, expected);
+    sinon.assert.calledWithMatch(deps.traderScoreRepo.getTradersScoreHistories, expected);
   });
 
   test('error thrown when doesn\'t return array', async () => {
-    deps.traderRepo.getTradersScoreHistories.resolves(null);
+    deps.traderScoreRepo.getTradersScoreHistories.resolves(null);
     const useCase = new GetTraderScoreHistory(deps);
 
-    return expect(useCase.execute(defaultReq)).rejects.toThrow('Unexpected response from traderRepo.getTradersScoreHistories');
+    return expect(useCase.execute(defaultReq)).rejects.toThrow('Unexpected response from traderScoreRepo.getTradersScoreHistories');
   });
 });
 
 describe('return format', () => {
-  test('returns obj in traderRepo.getTradersScoreHistories array', async () => {
+  test('returns obj in traderScoreRepo.getTradersScoreHistories array', async () => {
     const traderScore = { score: 1, time: 2 };
     const returnedScores = [traderScore];
-    deps.traderRepo.getTradersScoreHistories.resolves(returnedScores);
+    deps.traderScoreRepo.getTradersScoreHistories.resolves(returnedScores);
 
     const useCase = new GetTraderScoreHistory(deps);
     const scores = await useCase.execute(defaultReq);

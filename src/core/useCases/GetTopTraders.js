@@ -6,8 +6,9 @@ const requestSchema = Joi.object().keys({
 });
 
 module.exports = class GetTopTraders {
-  constructor({ traderRepo }) {
-    this.traderRepo = traderRepo;
+  constructor({ traderScoreRepo, allowedPeriods }) {
+    this.traderScoreRepo = traderScoreRepo;
+    this.allowedPeriods = allowedPeriods;
   }
 
   async execute(req) {
@@ -20,6 +21,26 @@ module.exports = class GetTopTraders {
       throw err;
     }
 
-    const traders = this.traderRepo.getTopTraders(req);
+    if (req.period && !this.allowedPeriods.includes(req.period)) {
+      throw new Error('Period is invalid');
+    }
+
+    const traders = await this.traderScoreRepo.getTopTraders(req);
+
+    if (!req.period) {
+      const addRank = (item, index) => Object.assign({}, item, { rank: index + 1 });
+      return traders.map(addRank);
+    }
+
+    const traderIDs = traders.map(item => item.traderID);
+    const traderRanks = await this.traderScoreRepo.getTraderRanks(traderIDs);
+
+    const addTraderRanks = item => Object.assign(
+      {},
+      item,
+      { rank: (traderRanks ? traderRanks[item.traderID] : null) },
+    );
+
+    return traders.map(addTraderRanks);
   }
 };
