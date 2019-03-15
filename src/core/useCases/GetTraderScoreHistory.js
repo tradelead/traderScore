@@ -12,7 +12,7 @@ module.exports = class GetTraderScoreHistory {
   }
 
   async execute(req) {
-    const { error } = requestSchema.validate(req);
+    const { error, value } = requestSchema.validate(req);
 
     if (error != null) {
       const humanErr = error.details.map(detail => detail.message).join(', ');
@@ -21,6 +21,18 @@ module.exports = class GetTraderScoreHistory {
       throw err;
     }
 
-    return this.traderRepo.getTraderScoreHistory(req);
+    const { traderID, startTime, endTime } = value;
+
+    const scoreHistories = await this.traderRepo.getTradersScoreHistories([{
+      traderID,
+      startTime,
+      endTime,
+    }]);
+
+    if (!Array.isArray(scoreHistories)) {
+      throw new Error('Unexpected response from traderRepo.getTradersScoreHistories');
+    }
+
+    return (scoreHistories.length === 1 ? scoreHistories[0] : null);
   }
 };

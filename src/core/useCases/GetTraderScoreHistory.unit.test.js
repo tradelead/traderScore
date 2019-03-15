@@ -12,53 +12,54 @@ let deps = {};
 beforeEach(() => {
   deps = {
     traderRepo: {
-      getTraderScoreHistory: sinon.stub(),
+      getTradersScoreHistories: sinon.stub(),
     },
   };
+
+  deps.traderRepo.getTradersScoreHistories.resolves([]);
 });
 
-describe('traderRepo.getTraderScoreHistory', () => {
+describe('traderRepo.getTradersScoreHistories', () => {
   test('called once', async () => {
     const useCase = new GetTraderScoreHistory(deps);
     await useCase.execute(defaultReq);
 
-    sinon.assert.callCount(deps.traderRepo.getTraderScoreHistory, 1);
+    sinon.assert.callCount(deps.traderRepo.getTradersScoreHistories, 1);
   });
 
-  test('called with traderID', async () => {
+  test('called with correct params', async () => {
     const useCase = new GetTraderScoreHistory(deps);
     await useCase.execute(defaultReq);
 
-    const expected = { traderID: defaultReq.traderID };
-    sinon.assert.calledWithMatch(deps.traderRepo.getTraderScoreHistory, expected);
+    const expected = [{
+      traderID: defaultReq.traderID,
+      startTime: defaultReq.startTime,
+      endTime: defaultReq.endTime,
+    }];
+    sinon.assert.calledWithMatch(deps.traderRepo.getTradersScoreHistories, expected);
   });
 
-  test('called with startTime', async () => {
+  test('error thrown when doesn\'t return array', async () => {
+    deps.traderRepo.getTradersScoreHistories.resolves(null);
     const useCase = new GetTraderScoreHistory(deps);
-    await useCase.execute(defaultReq);
 
-    const expected = { startTime: defaultReq.startTime };
-    sinon.assert.calledWithMatch(deps.traderRepo.getTraderScoreHistory, expected);
-  });
-
-  test('called with endTime', async () => {
-    const useCase = new GetTraderScoreHistory(deps);
-    await useCase.execute(defaultReq);
-
-    const expected = { endTime: defaultReq.endTime };
-    sinon.assert.calledWithMatch(deps.traderRepo.getTraderScoreHistory, expected);
+    return expect(useCase.execute(defaultReq)).rejects.toThrow('Unexpected response from traderRepo.getTradersScoreHistories');
   });
 });
 
-it('returns response from traderRepo.getTraderScoreHistory', async () => {
-  const returnedScores = [{ score: 1, time: 2 }];
-  deps.traderRepo.getTraderScoreHistory.resolves(returnedScores);
+describe('return format', () => {
+  test('returns obj in traderRepo.getTradersScoreHistories array', async () => {
+    const traderScore = { score: 1, time: 2 };
+    const returnedScores = [traderScore];
+    deps.traderRepo.getTradersScoreHistories.resolves(returnedScores);
 
-  const useCase = new GetTraderScoreHistory(deps);
-  const scores = await useCase.execute(defaultReq);
+    const useCase = new GetTraderScoreHistory(deps);
+    const scores = await useCase.execute(defaultReq);
 
-  expect(scores).toBe(returnedScores);
+    expect(scores).toBe(traderScore);
+  });
 });
+
 
 describe('data validation', () => {
   it('throws error if traderID is missing', async () => {
