@@ -53,6 +53,7 @@ module.exports = class IngressTraderExchange {
         const lastOrders = await this.orderRepo.find({ traderID, limit: 1, sort: 'desc' });
         const orderStart = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
         let filledOrders = await this.exchangeService.getFilledOrders({
+          exchangeID,
           traderID,
           limit,
           startTime: orderStart,
@@ -67,6 +68,7 @@ module.exports = class IngressTraderExchange {
         const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
         const depositStart = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
         let deposits = await this.exchangeService.getDeposits({
+          exchangeID,
           traderID,
           limit,
           startTime: depositStart,
@@ -82,6 +84,7 @@ module.exports = class IngressTraderExchange {
         const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
         const withdrawStart = (hasWithdraws ? lastWithdraws[0].time : 0);
         let withdrawals = await this.exchangeService.getWithdrawals({
+          exchangeID,
           traderID,
           limit,
           startTime: withdrawStart,

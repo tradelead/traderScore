@@ -109,6 +109,14 @@ it('throw error from exchangeWatchRepo.add', async () => {
 });
 
 describe('exchangeService.getFilledOrders', () => {
+  test('called with exchangeID', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    const expectedArgs = { exchangeID: defaultReq.exchangeID };
+    sinon.assert.calledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
+  });
+
   test('called with traderID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
@@ -208,6 +216,14 @@ describe('exchangeService.getFilledOrders', () => {
 });
 
 describe('exchangeService.getDeposits', () => {
+  test('called with exchangeID', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    const expectedArgs = { exchangeID: defaultReq.exchangeID };
+    sinon.assert.calledWithMatch(deps.exchangeService.getDeposits, expectedArgs);
+  });
+
   test('called with traderID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
@@ -306,6 +322,14 @@ describe('exchangeService.getDeposits', () => {
 });
 
 describe('exchangeService.getWithdrawals', () => {
+  test('called with exchangeID', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    const expectedArgs = { exchangeID: defaultReq.exchangeID };
+    sinon.assert.calledWithMatch(deps.exchangeService.getWithdrawals, expectedArgs);
+  });
+
   test('called with traderID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
