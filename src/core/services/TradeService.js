@@ -227,12 +227,12 @@ module.exports = class TradeService {
 
       const tradePromises = [];
 
-      const updateGlobalScore = this.compoundTraderScore({ traderID, score });
+      const updateGlobalScore = this.updateTraderScore({ traderID, score });
       tradePromises.push(updateGlobalScore);
 
       const updatePeriodScore = (periodConfig) => {
         const period = periodConfig.id;
-        return this.compoundTraderScore({ traderID, score, period });
+        return this.updateTraderScore({ traderID, score, period });
       };
       const updatePeriodScores = this.traderScorePeriodConfig.map(updatePeriodScore);
 
@@ -244,7 +244,7 @@ module.exports = class TradeService {
     await Promise.all(promises);
   }
 
-  async compoundTraderScore({ traderID, score, period }) {
+  async updateTraderScore({ traderID, score, period }) {
     const getReq = { traderID };
 
     if (typeof period !== 'undefined') {
