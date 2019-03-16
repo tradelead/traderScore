@@ -55,6 +55,7 @@ describe('execute', () => {
         time: entryTime,
         quantity: defaultReq.exitQuantity - 5,
         sourceType: 'order',
+        sourceID: 'entry1',
         order: {
           side: 'buy',
           quoteAsset: 'USDT',
@@ -64,6 +65,7 @@ describe('execute', () => {
         time: entryTime,
         quantity: 5,
         sourceType: 'withdrawal',
+        sourceID: 'entry2',
       },
     ]);
 
@@ -85,6 +87,7 @@ describe('execute', () => {
         time: entryTime,
         quantity: defaultReq.exitQuantity - 5,
         sourceType: 'order',
+        sourceID: 'entry1',
         order: {
           side: 'buy',
           quoteAsset: 'USDT',
@@ -93,6 +96,7 @@ describe('execute', () => {
       {
         time: entryTime,
         quantity: 5,
+        sourceID: 'entry2',
         sourceType: 'withdrawal',
       },
     ]);
@@ -149,6 +153,7 @@ describe('execute', () => {
         time: Date.now(),
         quantity: defaultReq.exitQuantity - 5,
         sourceType: 'order',
+        sourceID: 'entry1',
         order: {
           side: 'buy',
           quoteAsset: 'USDT',
@@ -166,9 +171,42 @@ describe('execute', () => {
         time: Date.now(),
         quantity: defaultReq.exitQuantity - 5,
         sourceType: 'order',
+        sourceID: 'entry1',
         order: {
           side: 'sell',
         },
+      }]);
+
+      deps.exchangeService.findMarketQuoteAsset.resolves('ABC');
+
+      const useCase = new TradeService(deps);
+      const trades = await useCase.newTrade(defaultReq);
+
+      expect(trades[0]).toHaveProperty('quoteAsset', 'ABC');
+    });
+
+    it('equals exchangeService.findMarketQuoteAsset if entry is withdrawal', async () => {
+      deps.exchangeService.getEntries.resolves([{
+        time: Date.now(),
+        quantity: defaultReq.exitQuantity - 5,
+        sourceType: 'withdrawal',
+        sourceID: 'entry1',
+      }]);
+
+      deps.exchangeService.findMarketQuoteAsset.resolves('ABC');
+
+      const useCase = new TradeService(deps);
+      const trades = await useCase.newTrade(defaultReq);
+
+      expect(trades[0]).toHaveProperty('quoteAsset', 'ABC');
+    });
+
+    it('equals exchangeService.findMarketQuoteAsset if entry is deposit', async () => {
+      deps.exchangeService.getEntries.resolves([{
+        time: Date.now(),
+        quantity: defaultReq.exitQuantity - 5,
+        sourceType: 'deposit',
+        sourceID: 'entry1',
       }]);
 
       deps.exchangeService.findMarketQuoteAsset.resolves('ABC');
@@ -183,7 +221,8 @@ describe('execute', () => {
       deps.exchangeService.getEntries.resolves([{
         time: Date.now(),
         quantity: defaultReq.exitQuantity - 5,
-        sourceType: 'deposit',
+        sourceType: 'test',
+        sourceID: 'entry1',
       }]);
 
       const useCase = new TradeService(deps);
@@ -225,6 +264,7 @@ describe('execute', () => {
       time: entryTime,
       quantity: defaultReq.exitQuantity,
       sourceType: 'order',
+      sourceID: 'entry1',
       order: {
         side: 'buy',
         quoteAsset: 'USDT',
@@ -252,6 +292,7 @@ describe('execute', () => {
       time: entryTime,
       quantity: defaultReq.exitQuantity,
       sourceType: 'order',
+      sourceID: 'entry1',
       order: {
         side: 'buy',
         quoteAsset: 'USDT',
@@ -277,6 +318,7 @@ describe('execute', () => {
       time: entryTime,
       quantity: defaultReq.exitQuantity,
       sourceType: 'order',
+      sourceID: 'entry1',
       order: {
         side: 'buy',
         quoteAsset: 'USDT',
@@ -303,6 +345,7 @@ describe('execute', () => {
           time: entryTime,
           quantity: defaultReq.exitQuantity,
           sourceType: 'order',
+          sourceID: 'entry1',
           order: { side: 'buy', quoteAsset: 'USDT' },
         },
       ]);

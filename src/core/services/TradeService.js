@@ -50,7 +50,11 @@ module.exports = class TradeService {
       const newTradeReq = Object.assign({}, value);
 
       newTradeReq.quantity = entry.quantity;
-      newTradeReq.entry = { time: entry.time };
+      newTradeReq.entry = {
+        time: entry.time,
+        sourceID: entry.sourceID,
+        sourceType: entry.sourceType,
+      };
       newTradeReq.exit = { time: value.exitTime };
       newTradeReq.quoteAsset = await this.getEntryQuoteAsset(entry, value.exchangeID, value.asset);
 
@@ -122,14 +126,8 @@ module.exports = class TradeService {
       asset,
       quoteAsset,
       quantity,
-      entry: {
-        price: entry.price,
-        time: entry.time,
-      },
-      exit: {
-        price: exit.price,
-        time: exit.time,
-      },
+      entry,
+      exit,
       weight,
       score,
     });
@@ -210,6 +208,7 @@ module.exports = class TradeService {
     if (
       (entry.sourceType === 'order' && entry.order.side === 'sell')
       || entry.sourceType === 'withdrawal'
+      || entry.sourceType === 'deposit'
     ) {
       return this.exchangeService.findMarketQuoteAsset({
         exchange,

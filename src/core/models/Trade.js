@@ -10,6 +10,8 @@ const schema = Joi.object().keys({
   quoteAsset: Joi.string().min(2).max(8).required().label('Quote Asset'),
   quantity: Joi.number().positive().required().label('Quantity'),
   entry: Joi.object().keys({
+    sourceID: Joi.string().required().label('Entry Source ID'),
+    sourceType: Joi.string().lowercase().valid(['order', 'deposit', 'withdrawal']).required().label('Entry Source Type'),
     price: Joi.number().positive().required().label('Entry Price'),
     time: Joi.number().positive().required().label('Entry Time'),
   }),
