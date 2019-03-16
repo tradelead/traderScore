@@ -1,5 +1,5 @@
 const sinon = require('sinon');
-
+const BigNumber = require('bignumber.js');
 const TradeService = require('./TradeService');
 
 const defaultReq = {
@@ -17,10 +17,18 @@ let deps = {};
 beforeEach(() => {
   // reset deps for each test
   deps = {
+    traderScorePeriodConfig: [
+      { id: 'day', duration: 60 * 60 * 24 * 1000 },
+      { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
+    ],
     tradeRepo: {
       addTrade: sinon.stub(),
       getDailyTradeChangeStdDeviation: sinon.stub(),
       getDailyTradeChangeMean: sinon.stub(),
+    },
+    traderScoreRepo: {
+      getTraderScore: sinon.stub(),
+      updateTraderScore: sinon.stub(),
     },
     traderPortfolio: {
       BTCValue: sinon.stub(),
@@ -62,10 +70,11 @@ describe('execute', () => {
     deps.exchangeService.getPrice.resolves(123);
     deps.exchangeService.getBTCValue.resolves(50);
     deps.exchangeService.findMarketQuoteAsset.resolves('BTC');
-    deps.globalMarketService.marketChange.resolves(1.02);
+    deps.globalMarketService.marketChange.resolves(0.02);
     deps.traderPortfolio.BTCValue.resolves(100);
-    deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(1.01);
-    deps.tradeRepo.getDailyTradeChangeMean.resolves(1.03);
+    deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.01);
+    deps.tradeRepo.getDailyTradeChangeMean.resolves(0.03);
+    deps.traderScoreRepo.getTraderScore.resolves(100);
   });
 
   it('saves new trade for each entry', async () => {
@@ -265,7 +274,7 @@ describe('execute', () => {
   test('globalMarketService.marketChange called with entry time and exit time', async () => {
     const entryTime = Date.now() - 10000;
     deps.exchangeService.getEntries.resolves([{
-      time: Date.now() - 10000,
+      time: entryTime,
       quantity: defaultReq.exitQuantity,
       sourceType: 'order',
       order: {
@@ -279,20 +288,105 @@ describe('execute', () => {
 
     sinon.assert.calledWith(deps.globalMarketService.marketChange, entryTime, defaultReq.exitTime);
   });
+
+  describe('update trader scores', () => {
+    beforeEach(() => {
+      deps.traderScorePeriodConfig = [
+        { id: 'day', duration: 60 * 60 * 24 * 1000 },
+        { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
+      ];
+
+      const exitTime = new BigNumber(defaultReq.exitTime);
+      const entryTime = exitTime.minus(60 * 60 * 24 * 1000).toNumber();
+      deps.exchangeService.getEntries.resolves([
+        {
+          time: entryTime,
+          quantity: defaultReq.exitQuantity,
+          sourceType: 'order',
+          order: { side: 'buy', quoteAsset: 'USDT' },
+        },
+      ]);
+
+      deps.traderScoreRepo.getTraderScore.resolves(50);
+      deps.exchangeService.getPrice.withArgs(sinon.match.has('time', entryTime)).resolves(1);
+      deps.exchangeService.getPrice.resolves(1.5);
+      deps.exchangeService.getBTCValue.resolves(1);
+      deps.exchangeService.findMarketQuoteAsset.resolves('BTC');
+      deps.globalMarketService.marketChange.resolves(0);
+      deps.traderPortfolio.BTCValue.resolves(1);
+      deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.0);
+      deps.tradeRepo.getDailyTradeChangeMean.resolves(0.5);
+    });
+
+    it('calls getTraderScore correct number of time', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      sinon.assert.callCount(deps.traderScoreRepo.getTraderScore, 3);
+    });
+
+    it('calls getTraderScore with traderID and no period', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID };
+      sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
+    });
+
+    it('calls getTraderScore with traderID and day period', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID, period: 'day' };
+      sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
+    });
+
+    it('calls getTraderScore with traderID and week period', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID, period: 'week' };
+      sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
+    });
+
+    it('updates global trader score with compounding arithmetic', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID, score: 75 };
+      sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
+    });
+
+    it('updates day trader score with compounding arithmetic', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID, period: 'day', score: 75 };
+      sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
+    });
+
+    it('updates week trader score with compounding arithmetic', async () => {
+      const useCase = new TradeService(deps);
+      await useCase.newTrade(defaultReq);
+
+      const expectedArgs = { traderID: defaultReq.traderID, period: 'week', score: 75 };
+      sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
+    });
+  });
 });
 
 describe('score', () => {
   beforeEach(() => {
-    deps.tradeRepo.getDailyTradeChangeStdDeviation.withArgs('trader123').resolves(1.01);
-    deps.tradeRepo.getDailyTradeChangeMean.withArgs('trader123').resolves(1.03);
+    deps.tradeRepo.getDailyTradeChangeStdDeviation.withArgs('trader123').resolves(0.01);
+    deps.tradeRepo.getDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
   });
 
   it('returns negative when less than market change', async () => {
     const useCase = new TradeService(deps);
     const score = await useCase.score({
       traderID: 'trader123',
-      marketChange: 1.10,
-      tradeChange: 1.05,
+      marketChange: 0.10,
+      tradeChange: 0.05,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
       exitTime: Date.now(),
       weight: 0.5,
@@ -305,14 +399,28 @@ describe('score', () => {
     const useCase = new TradeService(deps);
     const score = await useCase.score({
       traderID: 'trader123',
-      marketChange: 1.10,
-      tradeChange: 1.25,
+      marketChange: 0.10,
+      tradeChange: 0.25,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
       exitTime: Date.now(),
       weight: 0.5,
     });
 
     expect(score).toBe(3.729715809318648);
+  });
+
+  it('returns positive when more than market change and only 6 hrs', async () => {
+    const useCase = new TradeService(deps);
+    const score = await useCase.score({
+      traderID: 'trader123',
+      marketChange: 0.10,
+      tradeChange: 0.25,
+      entryTime: Date.now() - (60 * 60 * 6 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+    });
+
+    expect(score).toBe(2.4036774610288023);
   });
 
   // TODO: more exact tests should be written. to determine if the score is correct
