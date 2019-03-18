@@ -20,6 +20,9 @@ module.exports = class TradeService {
     globalMarketService,
     traderScoreRepo,
     traderScorePeriodConfig,
+    getEntriesLimitPerFetch,
+    orderRepo,
+    transferRepo,
   }) {
     this.tradeRepo = tradeRepo;
     this.traderPortfolio = traderPortfolio;
@@ -27,6 +30,9 @@ module.exports = class TradeService {
     this.globalMarketService = globalMarketService;
     this.traderScoreRepo = traderScoreRepo;
     this.traderScorePeriodConfig = traderScorePeriodConfig;
+    this.orderRepo = orderRepo;
+    this.transferRepo = transferRepo;
+    this.getEntriesLimitPerFetch = getEntriesLimitPerFetch;
   }
 
   async newTrade(req) {
@@ -39,10 +45,12 @@ module.exports = class TradeService {
       throw err;
     }
 
-    const entries = await this.exchangeService.getEntries({
-      exchange: value.exchangeID,
+    const entries = await this.getEntries({
+      traderID: value.traderID,
+      exchangeID: value.exchangeID,
       asset: value.asset,
       qty: value.exitQuantity,
+      exitTime: value.exitTime,
     });
 
     /** a trade will be created for each entry */
@@ -81,6 +89,195 @@ module.exports = class TradeService {
     await this.updateTraderScores({ trades });
 
     return trades;
+  }
+
+  /* eslint-disable no-await-in-loop */
+  async getEntries({
+    traderID,
+    exchangeID,
+    asset,
+    qty,
+    exitTime,
+  }) {
+    let entriesQty = 0;
+    let firstRun = true;
+    let ordersLeft = 0;
+    let depositsLeft = 0;
+    let withdrawalsLeft = 0;
+    let entriesAcc = [];
+    const entriesQueue = [];
+
+    const itemsLeft = () => ordersLeft + depositsLeft + withdrawalsLeft > 0;
+
+    do {
+      const ordersLeftOld = ordersLeft;
+      const depositsLeftOld = depositsLeft;
+      const withdrawalsLeftOld = withdrawalsLeft;
+      let item;
+
+      if (entriesQueue.length > 0) {
+        item = entriesQueue.pop();
+
+        const entriesQtyNum = new BigNumber(entriesQty);
+        entriesQty = entriesQtyNum.plus(item.unusedQty).toNumber();
+        entriesAcc.push(item);
+
+        if (item.type === 'order') {
+          ordersLeft -= 1;
+        } else if (item.type === 'deposit') {
+          depositsLeft -= 1;
+        } else if (item.type === 'withdrawal') {
+          withdrawalsLeft -= 1;
+        }
+      }
+
+      let type;
+      const startTime = (item && item.time > 0 ? item.time : 0);
+      const endTime = exitTime;
+      const limit = this.getEntriesLimitPerFetch;
+      const addToQueue = (additionalItems) => {
+        if (additionalItems && additionalItems.length > 0) {
+          const typedAdditionalItems = additionalItems.map(a => Object.assign({}, a, { type }));
+          entriesQueue.push(...typedAdditionalItems);
+          const descSort = (a, b) => b.time - a.time;
+          entriesQueue.sort(descSort);
+        }
+      };
+
+      if ((ordersLeft === 0 && ordersLeftOld !== 0) || firstRun) {
+        type = 'order';
+        const additionalItems = await this.orderRepo.getFilledOrders({
+          traderID,
+          exchangeID,
+          asset,
+          limit,
+          startTime,
+          endTime,
+          sort: 'desc',
+        });
+        ordersLeft = (additionalItems ? additionalItems.length : 0);
+        addToQueue(additionalItems);
+      }
+
+      if ((depositsLeft === 0 && depositsLeftOld !== 0) || firstRun) {
+        type = 'deposit';
+        const additionalItems = await this.transferRepo.getSuccessfulDeposits({
+          traderID,
+          exchangeID,
+          asset,
+          limit,
+          startTime,
+          endTime,
+          sort: 'desc',
+        });
+        depositsLeft = (additionalItems ? additionalItems.length : 0);
+        addToQueue(additionalItems);
+      }
+
+      if ((withdrawalsLeft === 0 && withdrawalsLeftOld !== 0) || firstRun) {
+        type = 'withdrawal';
+        const additionalItems = await this.transferRepo.getSuccessfulWithdrawals({
+          traderID,
+          exchangeID,
+          asset,
+          limit,
+          startTime,
+          endTime,
+          sort: 'desc',
+        });
+        withdrawalsLeft = (additionalItems ? additionalItems.length : 0);
+        addToQueue(additionalItems);
+      }
+
+      firstRun = false;
+    } while (entriesQty < qty && itemsLeft());
+
+    if (entriesQty < qty) {
+      throw new Error('Insufficient entries');
+    }
+
+    entriesAcc = entriesAcc.map(item => Object.assign({}, item, {
+      sourceID: item.sourceID,
+      sourceType: item.type,
+      quantity: item.unusedQty,
+      time: item.time,
+      source: item,
+    }));
+
+    const entriesQtyNum = new BigNumber(entriesQty);
+    const outboundQtyNum = entriesQtyNum.minus(qty);
+    const lastEntryQtyNum = new BigNumber(entriesAcc[entriesAcc.length - 1].quantity);
+    entriesAcc[entriesAcc.length - 1].quantity = lastEntryQtyNum.minus(outboundQtyNum).toNumber();
+
+    return entriesAcc;
+  }
+
+  async getEntryQuoteAsset(entry, exchangeID, asset) {
+    if (this.exchangeService.isRootAsset(exchangeID, asset)) {
+      return asset;
+    }
+
+    if (entry.sourceType === 'order' && entry.source.side === 'buy') {
+      return entry.source.quoteAsset;
+    }
+
+    if (
+      (entry.sourceType === 'order' && entry.source.side === 'sell')
+      || entry.sourceType === 'withdrawal'
+      || entry.sourceType === 'deposit'
+    ) {
+      return this.exchangeService.findMarketQuoteAsset({
+        exchangeID,
+        asset,
+        preferredQuoteAsset: 'BTC',
+      });
+    }
+
+    throw new Error('Unexpected entry type');
+  }
+
+  async updateTraderScores({ trades }) {
+    const promises = trades.map(async (trade) => {
+      const { traderID, score } = trade;
+
+      const tradePromises = [];
+
+      const updateGlobalScore = this.updateTraderScore({ traderID, score });
+      tradePromises.push(updateGlobalScore);
+
+      const updatePeriodScore = (periodConfig) => {
+        const period = periodConfig.id;
+        return this.updateTraderScore({ traderID, score, period });
+      };
+      const updatePeriodScores = this.traderScorePeriodConfig.map(updatePeriodScore);
+
+      tradePromises.push(...updatePeriodScores);
+
+      await Promise.all(tradePromises);
+    });
+
+    await Promise.all(promises);
+  }
+
+  async updateTraderScore({ traderID, score, period }) {
+    const getReq = { traderID };
+
+    if (typeof period !== 'undefined') {
+      getReq.period = period;
+    }
+
+    const traderScore = await this.traderScoreRepo.getTraderScore(getReq);
+
+    const compoundScore = (current, add) => current * ((add / 100) + 1);
+    const newTraderScore = compoundScore(traderScore, score);
+
+    const updateReq = { traderID, score: newTraderScore };
+
+    if (typeof period !== 'undefined') {
+      updateReq.period = period;
+    }
+
+    await this.traderScoreRepo.updateTraderScore(updateReq);
   }
 
   async createTradeObj({
@@ -133,6 +330,31 @@ module.exports = class TradeService {
     });
   }
 
+  async tradeWeight({
+    traderID,
+    exchangeID,
+    asset,
+    quoteAsset,
+    quantity,
+    exitPrice,
+    exitTime,
+  }) {
+    const tradeBTCValueProm = this.exchangeService.getBTCValue({
+      exchangeID,
+      asset,
+      quoteAsset,
+      qty: quantity,
+      time: exitTime,
+      price: exitPrice,
+    });
+
+    const portfolioBTC = await this.traderPortfolio.BTCValue({ traderID, time: exitTime });
+    const tradeBTCValue = await tradeBTCValueProm;
+    const tradeBTCValueSafe = new BigNumber(tradeBTCValue);
+
+    return tradeBTCValueSafe.div(portfolioBTC).toNumber();
+  }
+
   async score({
     traderID,
     marketChange,
@@ -169,98 +391,5 @@ module.exports = class TradeService {
     const weightedScore = score * weight;
 
     return weightedScore * 100;
-  }
-
-  async tradeWeight({
-    traderID,
-    exchangeID,
-    asset,
-    quoteAsset,
-    quantity,
-    exitPrice,
-    exitTime,
-  }) {
-    const tradeBTCValueProm = this.exchangeService.getBTCValue({
-      exchangeID,
-      asset,
-      quoteAsset,
-      qty: quantity,
-      time: exitTime,
-      price: exitPrice,
-    });
-
-    const portfolioBTC = await this.traderPortfolio.BTCValue({ traderID, time: exitTime });
-    const tradeBTCValue = await tradeBTCValueProm;
-    const tradeBTCValueSafe = new BigNumber(tradeBTCValue);
-
-    return tradeBTCValueSafe.div(portfolioBTC).toNumber();
-  }
-
-  async getEntryQuoteAsset(entry, exchange, asset) {
-    if (this.exchangeService.isRootAsset(exchange, asset)) {
-      return asset;
-    }
-
-    if (entry.sourceType === 'order' && entry.order.side === 'buy') {
-      return entry.order.quoteAsset;
-    }
-
-    if (
-      (entry.sourceType === 'order' && entry.order.side === 'sell')
-      || entry.sourceType === 'withdrawal'
-      || entry.sourceType === 'deposit'
-    ) {
-      return this.exchangeService.findMarketQuoteAsset({
-        exchange,
-        asset,
-        preferredQuoteAsset: 'BTC',
-      });
-    }
-
-    throw new Error('Unexpected entry type');
-  }
-
-  async updateTraderScores({ trades }) {
-    const promises = trades.map(async (trade) => {
-      const { traderID, score } = trade;
-
-      const tradePromises = [];
-
-      const updateGlobalScore = this.updateTraderScore({ traderID, score });
-      tradePromises.push(updateGlobalScore);
-
-      const updatePeriodScore = (periodConfig) => {
-        const period = periodConfig.id;
-        return this.updateTraderScore({ traderID, score, period });
-      };
-      const updatePeriodScores = this.traderScorePeriodConfig.map(updatePeriodScore);
-
-      tradePromises.push(...updatePeriodScores);
-
-      await Promise.all(tradePromises);
-    });
-
-    await Promise.all(promises);
-  }
-
-  async updateTraderScore({ traderID, score, period }) {
-    const getReq = { traderID };
-
-    if (typeof period !== 'undefined') {
-      getReq.period = period;
-    }
-
-    const traderScore = await this.traderScoreRepo.getTraderScore(getReq);
-
-    const compoundScore = (current, add) => current * ((add / 100) + 1);
-    const newTraderScore = compoundScore(traderScore, score);
-
-    const updateReq = { traderID, score: newTraderScore };
-
-    if (typeof period !== 'undefined') {
-      updateReq.period = period;
-    }
-
-    await this.traderScoreRepo.updateTraderScore(updateReq);
   }
 };
