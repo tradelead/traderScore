@@ -67,7 +67,7 @@ module.exports = class IngressTraderExchange {
       (async () => {
         const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
         const depositStart = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
-        let deposits = await this.exchangeService.getDeposits({
+        let deposits = await this.exchangeService.getSuccessfulDeposits({
           exchangeID,
           traderID,
           limit,
@@ -83,7 +83,7 @@ module.exports = class IngressTraderExchange {
         const lastWithdraws = await this.transferRepo.findWithdrawals({ traderID, limit: 1, sort: 'desc' });
         const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
         const withdrawStart = (hasWithdraws ? lastWithdraws[0].time : 0);
-        let withdrawals = await this.exchangeService.getWithdrawals({
+        let withdrawals = await this.exchangeService.getSuccessfulWithdrawals({
           exchangeID,
           traderID,
           limit,
@@ -147,11 +147,19 @@ module.exports = class IngressTraderExchange {
       ordersLeftNew = additionalItems.length;
     } else if (depositsLeftNew === 0 && depositsLeft !== 0) {
       type = 'deposit';
-      additionalItems = await this.exchangeService.getDeposits({ traderID, limit, startTime });
+      additionalItems = await this.exchangeService.getSuccessfulDeposits({
+        traderID,
+        limit,
+        startTime,
+      });
       depositsLeftNew = additionalItems.length;
     } else if (withdrawalsLeftNew === 0 && withdrawalsLeft !== 0) {
       type = 'withdrawal';
-      additionalItems = await this.exchangeService.getWithdrawals({ traderID, limit, startTime });
+      additionalItems = await this.exchangeService.getSuccessfulWithdrawals({
+        traderID,
+        limit,
+        startTime,
+      });
       withdrawalsLeftNew = additionalItems.length;
     }
 

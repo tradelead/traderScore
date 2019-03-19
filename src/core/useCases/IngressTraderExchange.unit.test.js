@@ -56,8 +56,8 @@ beforeEach(() => {
     ingressWithdrawal: { execute: sinon.stub() },
     exchangeService: {
       getFilledOrders: sinon.stub(),
-      getDeposits: sinon.stub(),
-      getWithdrawals: sinon.stub(),
+      getSuccessfulDeposits: sinon.stub(),
+      getSuccessfulWithdrawals: sinon.stub(),
     },
     orderRepo: {
       find: sinon.stub(),
@@ -80,13 +80,13 @@ beforeEach(() => {
     defaultOrder,
   ]);
 
-  deps.exchangeService.getDeposits.resolves([]);
-  deps.exchangeService.getDeposits.onCall(0).resolves([
+  deps.exchangeService.getSuccessfulDeposits.resolves([]);
+  deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([
     defaultDeposit,
   ]);
 
-  deps.exchangeService.getWithdrawals.resolves([]);
-  deps.exchangeService.getWithdrawals.onCall(0).resolves([
+  deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+  deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
     defaultWithdrawal,
   ]);
 
@@ -215,13 +215,13 @@ describe('exchangeService.getFilledOrders', () => {
   });
 });
 
-describe('exchangeService.getDeposits', () => {
+describe('exchangeService.getSuccessfulDeposits', () => {
   test('called with exchangeID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
     const expectedArgs = { exchangeID: defaultReq.exchangeID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getDeposits, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulDeposits, expectedArgs);
   });
 
   test('called with traderID', async () => {
@@ -229,25 +229,25 @@ describe('exchangeService.getDeposits', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { traderID: defaultReq.traderID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getDeposits, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulDeposits, expectedArgs);
   });
 
   test('called with traderID on multi fetch', async () => {
     const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultDeposit);
-    deps.exchangeService.getDeposits.resolves([]);
-    deps.exchangeService.getDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
 
     const deposit4 = uniqueObjectWithTimeAndSourceIDEqual(10, defaultDeposit);
     const deposit5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultDeposit);
     const deposit6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultDeposit);
-    deps.exchangeService.getDeposits.onCall(1).resolves([deposit4, deposit5, deposit6]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(1).resolves([deposit4, deposit5, deposit6]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getDeposits.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulDeposits.getCall(1);
     sinon.assert.calledWithMatch(secondCall, { traderID: defaultReq.traderID });
   });
 
@@ -256,25 +256,25 @@ describe('exchangeService.getDeposits', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { limit: deps.exchangeActivityLimitPerFetch };
-    sinon.assert.calledWithMatch(deps.exchangeService.getDeposits, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulDeposits, expectedArgs);
   });
 
   test('called with limit on multi fetch', async () => {
     const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultDeposit);
-    deps.exchangeService.getDeposits.resolves([]);
-    deps.exchangeService.getDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
 
     const deposit4 = uniqueObjectWithTimeAndSourceIDEqual(10, defaultDeposit);
     const deposit5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultDeposit);
     const deposit6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultDeposit);
-    deps.exchangeService.getDeposits.onCall(1).resolves([deposit4, deposit5, deposit6]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(1).resolves([deposit4, deposit5, deposit6]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getDeposits.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulDeposits.getCall(1);
     sinon.assert.calledWithMatch(secondCall, { limit: deps.exchangeActivityLimitPerFetch });
   });
 
@@ -291,7 +291,7 @@ describe('exchangeService.getDeposits', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getDeposits.getCall(0);
+    const firstCall = deps.exchangeService.getSuccessfulDeposits.getCall(0);
     const expectedArgs = { startTime: 123 };
     sinon.assert.calledWithMatch(firstCall, expectedArgs);
   });
@@ -300,34 +300,34 @@ describe('exchangeService.getDeposits', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getDeposits.getCall(0);
+    const firstCall = deps.exchangeService.getSuccessfulDeposits.getCall(0);
     const expectedArgs = { startTime: 0 };
     sinon.assert.calledWithMatch(firstCall, expectedArgs);
   });
 
   test('second call has startTime of last ingress', async () => {
-    deps.exchangeService.getDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
     const order1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultOrder);
-    deps.exchangeService.getDeposits.onCall(0).resolves([order1]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([order1]);
     const order2 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultOrder);
-    deps.exchangeService.getDeposits.onCall(1).resolves([order2]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(1).resolves([order2]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getDeposits.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulDeposits.getCall(1);
     const expectedArgs = { startTime: 1 };
     sinon.assert.calledWithMatch(secondCall, expectedArgs);
   });
 });
 
-describe('exchangeService.getWithdrawals', () => {
+describe('exchangeService.getSuccessfulWithdrawals', () => {
   test('called with exchangeID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
     const expectedArgs = { exchangeID: defaultReq.exchangeID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getWithdrawals, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulWithdrawals, expectedArgs);
   });
 
   test('called with traderID', async () => {
@@ -335,25 +335,33 @@ describe('exchangeService.getWithdrawals', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { traderID: defaultReq.traderID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getWithdrawals, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulWithdrawals, expectedArgs);
   });
 
   test('called with traderID on multi fetch', async () => {
     const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultWithdrawal);
     const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultWithdrawal);
     const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.resolves([]);
-    deps.exchangeService.getWithdrawals.onCall(0).resolves([withdrawal1, withdrawal2, withdrawal3]);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
 
     const withdrawal4 = uniqueObjectWithTimeAndSourceIDEqual(10, defaultWithdrawal);
     const withdrawal5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultWithdrawal);
     const withdrawal6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(1).resolves([withdrawal4, withdrawal5, withdrawal6]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(1).resolves([
+      withdrawal4,
+      withdrawal5,
+      withdrawal6,
+    ]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getWithdrawals.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(1);
     sinon.assert.calledWithMatch(secondCall, { traderID: defaultReq.traderID });
   });
 
@@ -362,25 +370,33 @@ describe('exchangeService.getWithdrawals', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { limit: deps.exchangeActivityLimitPerFetch };
-    sinon.assert.calledWithMatch(deps.exchangeService.getWithdrawals, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulWithdrawals, expectedArgs);
   });
 
   test('called with limit on multi fetch', async () => {
     const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultWithdrawal);
     const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultWithdrawal);
     const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.resolves([]);
-    deps.exchangeService.getWithdrawals.onCall(0).resolves([withdrawal1, withdrawal2, withdrawal3]);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
 
     const withdrawal4 = uniqueObjectWithTimeAndSourceIDEqual(10, defaultWithdrawal);
     const withdrawal5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultWithdrawal);
     const withdrawal6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(1).resolves([withdrawal4, withdrawal5, withdrawal6]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(1).resolves([
+      withdrawal4,
+      withdrawal5,
+      withdrawal6,
+    ]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getWithdrawals.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(1);
     sinon.assert.calledWithMatch(secondCall, { limit: deps.exchangeActivityLimitPerFetch });
   });
 
@@ -397,7 +413,7 @@ describe('exchangeService.getWithdrawals', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getWithdrawals.getCall(0);
+    const firstCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(0);
     const expectedArgs = { startTime: 123 };
     sinon.assert.calledWithMatch(firstCall, expectedArgs);
   });
@@ -406,22 +422,22 @@ describe('exchangeService.getWithdrawals', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getWithdrawals.getCall(0);
+    const firstCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(0);
     const expectedArgs = { startTime: 0 };
     sinon.assert.calledWithMatch(firstCall, expectedArgs);
   });
 
   test('second call has startTime of last ingress', async () => {
-    deps.exchangeService.getWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
     const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(0).resolves([withdrawal1]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([withdrawal1]);
     const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(1).resolves([withdrawal2]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(1).resolves([withdrawal2]);
 
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const secondCall = deps.exchangeService.getWithdrawals.getCall(1);
+    const secondCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(1);
     const expectedArgs = { startTime: 1 };
     sinon.assert.calledWithMatch(secondCall, expectedArgs);
   });
@@ -445,14 +461,18 @@ describe('ingress activity', () => {
     const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
-    deps.exchangeService.getDeposits.resolves([]);
-    deps.exchangeService.getDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
 
     const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
     const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(8, defaultWithdrawal);
     const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(9, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.resolves([]);
-    deps.exchangeService.getWithdrawals.onCall(0).resolves([withdrawal1, withdrawal2, withdrawal3]);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
 
     // run
     const useCase = new IngressTraderExchange(deps);
@@ -487,28 +507,32 @@ describe('ingress activity', () => {
     const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
-    deps.exchangeService.getDeposits.resolves([]);
-    deps.exchangeService.getDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
 
     const deposit4 = uniqueObjectWithTimeAndSourceIDEqual(12, defaultDeposit);
     const deposit5 = uniqueObjectWithTimeAndSourceIDEqual(14, defaultDeposit);
-    deps.exchangeService.getDeposits.onCall(1).resolves([deposit4, deposit5]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(1).resolves([deposit4, deposit5]);
 
     const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
     const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(8, defaultWithdrawal);
     const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(9, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.resolves([]);
-    deps.exchangeService.getWithdrawals.onCall(0).resolves([withdrawal1, withdrawal2, withdrawal3]);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
 
     const withdrawal4 = uniqueObjectWithTimeAndSourceIDEqual(11, defaultWithdrawal);
     const withdrawal5 = uniqueObjectWithTimeAndSourceIDEqual(17, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(1).resolves([withdrawal4, withdrawal5]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(1).resolves([withdrawal4, withdrawal5]);
 
     const withdrawal6 = uniqueObjectWithTimeAndSourceIDEqual(18, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(2).resolves([withdrawal6]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(2).resolves([withdrawal6]);
 
     const withdrawal7 = uniqueObjectWithTimeAndSourceIDEqual(19, defaultWithdrawal);
-    deps.exchangeService.getWithdrawals.onCall(3).resolves([withdrawal7]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(3).resolves([withdrawal7]);
 
     // run
     const useCase = new IngressTraderExchange(deps);
