@@ -7,6 +7,7 @@ const exchangeAPI = {
   getDeposits: sinon.stub(),
   getWithdrawals: sinon.stub(),
   isRootAsset: sinon.stub(),
+  getPrice: sinon.stub(),
 };
 
 let service;
@@ -28,6 +29,7 @@ beforeEach(() => {
   exchangeAPI.getFilledOrders.reset();
   exchangeAPI.getDeposits.reset();
   exchangeAPI.getWithdrawals.reset();
+  exchangeAPI.isRootAsset.reset();
 
   service = new ExchangeService(deps);
 });
@@ -295,10 +297,91 @@ describe('getPrice', () => {
     await service.getPrice(req);
     sinon.assert.calledWith(deps.exchangeAPIFactory.get, req.exchangeID);
   });
+
+  it('returns 1 if is root asset', async () => {
+    exchangeAPI.isRootAsset.withArgs('AAA').resolves(true);
+    const res = await service.getPrice(req);
+    expect(res).toBe(1);
+  });
+
+  it('returns exchangeAPI.getPrice', async () => {
+    exchangeAPI.getPrice.resolves(123.456789);
+    const res = await service.getPrice(req);
+    expect(res).toBe(123.456789);
+  });
+
+  it('calls exchangeAPI.getPrice with params', async () => {
+    await service.getPrice(req);
+
+    const expectedArgs = {
+      asset: req.asset,
+      quoteAsset: req.quoteAsset,
+      time: req.time,
+    };
+    sinon.assert.calledWith(exchangeAPI.getPrice, expectedArgs);
+  });
 });
 
 describe('getBTCValue', () => {
+  let req;
 
+  beforeEach(() => {
+    req = {
+      exchangeID: 'exchange123',
+      asset: 'AAA',
+      quoteAsset: 'BBB',
+      time: Date.now(),
+      qty: 123.4,
+      price: 234.5,
+    };
+  });
+
+  test('when asset BTC return qty', async () => {
+    req.asset = 'BTC';
+    const res = await service.getBTCValue(req);
+
+    expect(res).toBe(req.qty);
+  });
+
+  test('when quoteAsset BTC return qty * price with precision', async () => {
+    req.quoteAsset = 'BTC';
+    req.qty = 0.1;
+    req.price = 0.2;
+    const res = await service.getBTCValue(req);
+
+    expect(res).toBe(0.02);
+  });
+
+  test('when asset is root asset return qty divided by root asset quote price for btc', async () => {
+    exchangeAPI.isRootAsset.resolves(true);
+    sinon.stub(service, 'getPrice').withArgs({
+      exchangeID: req.exchangeID,
+      asset: 'BTC',
+      quoteAsset: req.asset,
+      time: req.time,
+    }).resolves(0.1);
+
+    req.qty = 0.01;
+
+    const res = await service.getBTCValue(req);
+
+    expect(res).toBe(0.1);
+  });
+
+  test('when asset isn\'t root asset return qty times asset btc price', async () => {
+    sinon.stub(service, 'getPrice').withArgs({
+      exchangeID: req.exchangeID,
+      asset: req.asset,
+      quoteAsset: 'BTC',
+      time: req.time,
+    }).resolves(0.2);
+
+    req.qty = 0.1;
+
+    const res = await service.getBTCValue(req);
+
+    expect(res).toBe(0.02);
+  });
 });
 
 describe('findMarketQuoteAsset', () => {

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const BigNumber = require('bignumber.js');
 
 module.exports = class ExchangeService {
   constructor({ exchangeAPIFactory, traderPortfolioRepo, traderExchangeKeysRepo }) {
@@ -146,5 +147,51 @@ module.exports = class ExchangeService {
     } = value;
 
     const exchangeAPI = this.exchangeAPIFactory.get(exchangeID);
+
+    if (await exchangeAPI.isRootAsset(asset)) {
+      return 1;
+    }
+
+    return exchangeAPI.getPrice({ asset, quoteAsset, time });
+  }
+
+  async getBTCValue(req) {
+    const {
+      exchangeID,
+      asset,
+      quoteAsset,
+      time,
+      qty,
+      price,
+    } = req;
+
+    if (asset === 'BTC') {
+      return qty;
+    }
+
+    const qtyBigNum = new BigNumber(qty);
+
+    if (quoteAsset === 'BTC') {
+      return qtyBigNum.times(price).toNumber();
+    }
+
+    if (await this.isRootAsset({ exchangeID, asset })) {
+      const rootAssetBTCPrice = await this.getPrice({
+        exchangeID,
+        asset: 'BTC',
+        quoteAsset: asset,
+        time,
+      });
+      return qtyBigNum.div(rootAssetBTCPrice).toNumber();
+    }
+
+    const assetBTCPrice = await this.getPrice({
+      exchangeID,
+      asset,
+      quoteAsset: 'BTC',
+      time,
+    });
+
+    return qtyBigNum.times(assetBTCPrice).toNumber();
   }
 };
