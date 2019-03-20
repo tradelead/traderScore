@@ -2,9 +2,8 @@ const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 
 module.exports = class ExchangeService {
-  constructor({ exchangeAPIFactory, traderPortfolioRepo, traderExchangeKeysRepo }) {
+  constructor({ exchangeAPIFactory, traderExchangeKeysRepo }) {
     this.exchangeAPIFactory = exchangeAPIFactory;
-    this.traderPortfolioRepo = traderPortfolioRepo;
     this.traderExchangeKeysRepo = traderExchangeKeysRepo;
   }
 
@@ -129,7 +128,7 @@ module.exports = class ExchangeService {
       exchangeID: Joi.string().required().label('Exchange ID'),
       asset: Joi.string().min(2).max(8).required().label('Asset'),
       quoteAsset: Joi.string().min(2).max(8).required().label('Quote Asset'),
-      time: Joi.number().label('Time'),
+      time: Joi.number().required().label('Time'),
     }).validate(req);
 
     if (error != null) {
@@ -156,6 +155,22 @@ module.exports = class ExchangeService {
   }
 
   async getBTCValue(req) {
+    const { error, value } = Joi.object().keys({
+      exchangeID: Joi.string().required().label('Exchange ID'),
+      asset: Joi.string().min(2).max(8).required().label('Asset'),
+      quoteAsset: Joi.string().min(2).max(8).required().label('Quote Asset'),
+      time: Joi.number().required().label('Time'),
+      qty: Joi.number().positive().required().label('Quantity'),
+      price: Joi.number().label('Price'),
+    }).validate(req);
+
+    if (error != null) {
+      const humanErr = error.details.map(detail => detail.message).join(', ');
+      const err = new Error(humanErr);
+      err.name = 'BadRequest';
+      throw err;
+    }
+
     const {
       exchangeID,
       asset,
@@ -163,7 +178,7 @@ module.exports = class ExchangeService {
       time,
       qty,
       price,
-    } = req;
+    } = value;
 
     if (asset === 'BTC') {
       return qty;
@@ -171,7 +186,7 @@ module.exports = class ExchangeService {
 
     const qtyBigNum = new BigNumber(qty);
 
-    if (quoteAsset === 'BTC') {
+    if (quoteAsset === 'BTC' && price > 0) {
       return qtyBigNum.times(price).toNumber();
     }
 
@@ -193,5 +208,58 @@ module.exports = class ExchangeService {
     });
 
     return qtyBigNum.times(assetBTCPrice).toNumber();
+  }
+
+  async findMarketQuoteAsset(req) {
+    const { error, value } = Joi.object().keys({
+      exchangeID: Joi.string().required().label('Exchange ID'),
+      asset: Joi.string().required().label('Asset'),
+      preferredQuoteAsset: Joi.string().label('Preferred Quote Asset'),
+    }).validate(req);
+
+    if (error != null) {
+      const humanErr = error.details.map(detail => detail.message).join(', ');
+      const err = new Error(humanErr);
+      err.name = 'BadRequest';
+      throw err;
+    }
+
+    const {
+      exchangeID,
+      asset,
+      preferredQuoteAsset,
+    } = value;
+
+    const exchangeAPI = this.exchangeAPIFactory.get(exchangeID);
+
+    if (await exchangeAPI.isRootAsset(asset)) {
+      return asset;
+    }
+
+    const markets = await exchangeAPI.getMarkets();
+
+    if (!markets || markets.length === 0) {
+      throw new Error('error retrieving exchange markets');
+    }
+
+    const marketsObj = markets.reduce((obj, market) => {
+      if (market.asset === asset) {
+        const objKey = market.asset + market.quoteAsset;
+        const newObj = Object.assign({}, obj);
+        newObj[objKey] = market;
+
+        return newObj;
+      }
+
+      return obj;
+    }, {});
+
+    const preferredMarket = marketsObj[asset + preferredQuoteAsset];
+    if (preferredMarket) {
+      return preferredQuoteAsset;
+    }
+
+    const firstKey = Object.keys(marketsObj)[0];
+    return marketsObj[firstKey].quoteAsset;
   }
 };

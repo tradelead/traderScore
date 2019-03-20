@@ -8,15 +8,13 @@ const exchangeAPI = {
   getWithdrawals: sinon.stub(),
   isRootAsset: sinon.stub(),
   getPrice: sinon.stub(),
+  getMarkets: sinon.stub(),
 };
 
 let service;
 
 beforeEach(() => {
   deps = {
-    traderPortfolioRepo: {
-      portfolioSnapshot: sinon.stub(),
-    },
     traderExchangeKeysRepo: {
       get: sinon.stub(),
     },
@@ -30,6 +28,7 @@ beforeEach(() => {
   exchangeAPI.getDeposits.reset();
   exchangeAPI.getWithdrawals.reset();
   exchangeAPI.isRootAsset.reset();
+  exchangeAPI.getMarkets.reset();
 
   service = new ExchangeService(deps);
 });
@@ -352,6 +351,23 @@ describe('getBTCValue', () => {
     expect(res).toBe(0.02);
   });
 
+  test('when quoteAsset BTC and price null return qty * price from exchange with precision', async () => {
+    req.quoteAsset = 'BTC';
+    req.qty = 0.1;
+    delete req.price;
+
+    sinon.stub(service, 'getPrice').withArgs({
+      exchangeID: req.exchangeID,
+      asset: req.asset,
+      quoteAsset: 'BTC',
+      time: req.time,
+    }).resolves(0.2);
+
+    const res = await service.getBTCValue(req);
+
+    expect(res).toBe(0.02);
+  });
+
   test('when asset is root asset return qty divided by root asset quote price for btc', async () => {
     exchangeAPI.isRootAsset.resolves(true);
     sinon.stub(service, 'getPrice').withArgs({
@@ -385,5 +401,57 @@ describe('getBTCValue', () => {
 });
 
 describe('findMarketQuoteAsset', () => {
+  let req;
 
+  beforeEach(() => {
+    req = {
+      exchangeID: 'exchange123',
+      asset: 'AAA',
+      preferredQuoteAsset: 'BBB',
+    };
+
+    exchangeAPI.getMarkets.resolves([{ asset: 'AAA', quoteAsset: 'CCC' }]);
+  });
+
+  it('calls exchangeAPIFactory.get with exchangeID', async () => {
+    await service.findMarketQuoteAsset(req);
+    sinon.assert.calledWith(deps.exchangeAPIFactory.get, req.exchangeID);
+  });
+
+  it('returns same asset if root asset', async () => {
+    exchangeAPI.isRootAsset.withArgs(req.asset).resolves(true);
+    const resAsset = await service.findMarketQuoteAsset(req);
+    expect(resAsset).toEqual(req.asset);
+  });
+
+  it('returns preferredQuoteAsset if exists', async () => {
+    exchangeAPI.getMarkets.resolves([{ asset: 'AAA', quoteAsset: 'BBB' }]);
+    const resAsset = await service.findMarketQuoteAsset(req);
+    expect(resAsset).toEqual(req.preferredQuoteAsset);
+  });
+
+  it('returns first market item if no preferred', async () => {
+    exchangeAPI.getMarkets.resolves([
+      { asset: 'BBB', quoteAsset: 'DDD' },
+      { asset: 'AAA', quoteAsset: 'CCC' },
+      { asset: 'AAA', quoteAsset: 'DDD' },
+    ]);
+    const resAsset = await service.findMarketQuoteAsset(req);
+    expect(resAsset).toEqual('CCC');
+  });
+
+  it('throws error if asset not specified', async () => {
+    delete req.asset;
+    expect(service.findMarketQuoteAsset(req)).rejects.toThrow('"Asset" is required');
+  });
+
+  it('throws error if exchangeID not specified', async () => {
+    delete req.exchangeID;
+    expect(service.findMarketQuoteAsset(req)).rejects.toThrow('"Exchange ID" is required');
+  });
+
+  it('doesn\'t throw error if preferredQuoteAsset not specified', async () => {
+    delete req.preferredQuoteAsset;
+    expect(service.findMarketQuoteAsset(req)).resolves.toBeTruthy();
+  });
 });
