@@ -112,7 +112,7 @@ module.exports = class IngressTraderExchange {
 
     const traderExchanges = await this.traderExchangeRepo.getExchanges(traderID);
     if (traderExchanges.length > 1) {
-      this.traderScoreService.calculateScores(traderID);
+      await this.traderScoreService.calculateScores(traderID);
     }
 
     return true;

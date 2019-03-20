@@ -582,6 +582,18 @@ test('doesn\'t calculate trader scores if trader has no other exchanges', async 
   sinon.assert.notCalled(deps.traderScoreService.calculateScores);
 });
 
+test('rejects if traderScoreService.calculateScores errors', async () => {
+  deps.traderExchangeRepo.getExchanges.resolves([
+    { id: 'bittrex' },
+    { id: 'binance' },
+  ]);
+  deps.traderScoreService.calculateScores.rejects();
+
+  const useCase = new IngressTraderExchange(deps);
+
+  return expect(useCase.execute(defaultReq)).rejects.toThrow();
+});
+
 describe('data validation', () => {
   it('throws error when exchangeID missing', async () => {
     const useCase = new IngressTraderExchange({});
