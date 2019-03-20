@@ -69,6 +69,12 @@ beforeEach(() => {
     exchangeWatchRepo: {
       add: sinon.stub(),
     },
+    traderExchangeRepo: {
+      getExchanges: sinon.stub(),
+    },
+    traderScoreService: {
+      calculateScores: sinon.stub(),
+    },
   };
 
   deps.ingressDeposit.execute.resolves(null);
@@ -91,6 +97,8 @@ beforeEach(() => {
   ]);
 
   deps.exchangeWatchRepo.add.resolves(true);
+
+  deps.traderExchangeRepo.getExchanges.resolves([]);
 });
 
 it('adds to exchangeWatchRepo', async () => {
@@ -541,6 +549,37 @@ describe('ingress activity', () => {
     // assert
     expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
   });
+});
+
+test('calculates trader scores if trader has other exchanges', async () => {
+  // setup
+  deps.traderExchangeRepo.getExchanges
+    .withArgs(defaultReq.traderID)
+    .resolves([
+      { id: 'bittrex' },
+      { id: 'binance' },
+    ]);
+
+  // run
+  const useCase = new IngressTraderExchange(deps);
+  await useCase.execute(defaultReq);
+
+  // assert
+  sinon.assert.calledWith(deps.traderScoreService.calculateScores, defaultReq.traderID);
+});
+
+test('doesn\'t calculate trader scores if trader has no other exchanges', async () => {
+  // setup
+  deps.traderExchangeRepo.getExchanges.resolves([
+    { id: 'binance' },
+  ]);
+
+  // run
+  const useCase = new IngressTraderExchange(deps);
+  await useCase.execute(defaultReq);
+
+  // assert
+  sinon.assert.notCalled(deps.traderScoreService.calculateScores);
 });
 
 describe('data validation', () => {
