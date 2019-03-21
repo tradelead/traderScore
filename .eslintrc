@@ -2,7 +2,8 @@
   "extends": ["airbnb", "plugin:jest/recommended"],
   "plugins": ["jest"],
   "rules": {
-    "func-names": ["error", "never"]
+    "func-names": ["error", "never"],
+    "no-await-in-loop": 0
   },
   "env": {
     "jest/globals": true

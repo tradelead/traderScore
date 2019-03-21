@@ -8,33 +8,22 @@ module.exports = class TraderScoreService {
     traderScoreRepo,
     traderScoreMutexFactory,
     tradeRepo,
+    tradeFetchLimit,
   }) {
     this.traderScorePeriodConfig = traderScorePeriodConfig;
     this.traderScoreRepo = traderScoreRepo;
     this.traderScoreMutexFactory = traderScoreMutexFactory;
     this.tradeRepo = tradeRepo;
+    this.tradeFetchLimit = tradeFetchLimit;
   }
 
   async incrementScore({ traderID, score, period }) {
-    const getReq = { traderID };
-
-    if (typeof period !== 'undefined') {
-      getReq.period = period;
-    }
-
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
-      const curScore = await this.traderScoreRepo.getTraderScore(getReq);
+      const curScore = await this.traderScoreRepo.getTraderScore({ traderID, period });
       const newScore = compoundScore(curScore, score);
-
-      const updateReq = { traderID, score: newScore };
-
-      if (typeof period !== 'undefined') {
-        updateReq.period = period;
-      }
-
-      await this.traderScoreRepo.updateTraderScore(updateReq);
+      await this.traderScoreRepo.updateTraderScore({ traderID, period, score: newScore });
     } catch (e) {
       throw e;
     } finally {
@@ -45,7 +34,7 @@ module.exports = class TraderScoreService {
   async incrementScores({ trades }) {
     const promises = [];
 
-    if (!trades) {
+    if (!trades || !Array.isArray(trades) || trades.length === 0) {
       throw new Error('Trades invalid');
     }
 
@@ -61,6 +50,66 @@ module.exports = class TraderScoreService {
       }));
 
       promises.push(...periodPromises);
+    });
+
+    await Promise.all(promises);
+  }
+
+  async calculateScore({ traderID, period }) {
+    let score = 1;
+    let offset = 0;
+    let periodConfig;
+
+    if (period) {
+      [periodConfig] = this.traderScorePeriodConfig.filter(cfg => cfg.id === period);
+
+      if (!periodConfig) {
+        throw new Error('Period doesn\'t exist');
+      }
+    } else {
+      periodConfig = { duration: 0 };
+    }
+
+    const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
+
+    try {
+      const compoundTrade = (trade) => {
+        score = compoundScore(score, trade.score);
+      };
+
+      const endTime = Date.now();
+      for (; ;) {
+        const startTime = Date.now() - periodConfig.duration;
+        const trades = await this.tradeRepo.getTrades({
+          traderID,
+          period,
+          offset,
+          startTime,
+          endTime,
+        });
+
+        if (!trades || !Array.isArray(trades) || trades.length === 0) {
+          break;
+        }
+
+        trades.forEach(compoundTrade);
+
+        offset += this.tradeFetchLimit;
+      }
+
+      await this.traderScoreRepo.updateTraderScore({ traderID, period, score });
+      return score;
+    } catch (e) {
+      throw e;
+    } finally {
+      mutex.release();
+    }
+  }
+
+  async calculateScores({ traderID }) {
+    const promises = this.traderScorePeriodConfig.map(async (periodConfig) => {
+      const period = periodConfig.id;
+      await this.calculateScore({ traderID, period });
     });
 
     await Promise.all(promises);

@@ -11,10 +11,9 @@ beforeEach(() => {
       { id: 'day', duration: 60 * 60 * 24 * 1000 },
       { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
     ],
+    tradeFetchLimit: 1000,
     tradeRepo: {
-      addTrade: sinon.stub(),
-      getDailyTradeChangeStdDeviation: sinon.stub(),
-      getDailyTradeChangeMean: sinon.stub(),
+      getTrades: sinon.stub(),
     },
     traderScoreRepo: {
       getTraderScore: sinon.stub(),
@@ -70,8 +69,8 @@ describe('incrementScore', () => {
     delete req.period;
     await service.incrementScore(req);
 
-    const { traderID } = req;
-    const expectedArgs = { traderID };
+    const { traderID, period } = req;
+    const expectedArgs = { traderID, period };
     sinon.assert.calledWithExactly(deps.traderScoreRepo.getTraderScore, expectedArgs);
   });
 
@@ -79,8 +78,8 @@ describe('incrementScore', () => {
     delete req.period;
     await service.incrementScore(req);
 
-    const { traderID } = req;
-    const expectedArgs = { traderID, score: 62.5 };
+    const { traderID, period } = req;
+    const expectedArgs = { traderID, period, score: 62.5 };
     sinon.assert.calledWithExactly(deps.traderScoreRepo.updateTraderScore, expectedArgs);
   });
 
@@ -190,5 +189,182 @@ describe('incrementScores', () => {
   it('rejects with error if incrementScore throws error', async () => {
     service.incrementScore.rejects();
     return expect(service.incrementScores(req)).rejects.toThrow();
+  });
+});
+
+describe('calculateScore', () => {
+  let service;
+  let req;
+
+  const tradesData = [
+    { traderID: '123', score: 25 },
+    { traderID: '123', score: 28 },
+  ];
+
+  beforeEach(() => {
+    req = {
+      traderID: 'trader123',
+      period: 'day',
+    };
+
+    deps.tradeFetchLimit = 1;
+
+    let tradesIndex = 0;
+    const getNextTrades = async () => {
+      const trades = tradesData.slice(tradesIndex, tradesIndex + deps.tradeFetchLimit);
+      tradesIndex += deps.tradeFetchLimit;
+      return trades;
+    };
+    deps.tradeRepo.getTrades.callsFake(getNextTrades);
+
+    service = new TraderScoreService(deps);
+  });
+
+  it('compound increments scores from tradeRepo.getTrades when more than fetch limit', async () => {
+    const score = await service.calculateScore(req);
+
+    expect(score).toBe(1.6);
+  });
+
+  test('offsets second call to tradeRepo.getTrades', async () => {
+    await service.calculateScore(req);
+
+    const offset = deps.tradeFetchLimit;
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(1), { offset });
+  });
+
+  it('calls tradeRepo.getTrades with traderID', async () => {
+    await service.calculateScore(req);
+
+    const { traderID } = req;
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, { traderID });
+  });
+
+  it('calls tradeRepo.getTrades with period', async () => {
+    await service.calculateScore(req);
+
+    const { period } = req;
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, { period });
+  });
+
+  it('calls tradeRepo.getTrades with period startTime', async () => {
+    const curTime = Date.now();
+    Date.now = jest.fn(() => curTime);
+
+    await service.calculateScore(req);
+
+    const { period } = req;
+    const periodConfig = deps.traderScorePeriodConfig.filter(cfg => cfg.id === period)[0];
+    const startTime = Date.now() - periodConfig.duration;
+
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, { startTime });
+  });
+
+  it('calls tradeRepo.getTrades with the same endTime from the start', async () => {
+    const curTime = Date.now();
+    let nowIndex = 0;
+    Date.now = jest.fn(() => {
+      const time = curTime - nowIndex;
+      nowIndex += 1;
+      return time;
+    });
+
+    await service.calculateScore(req);
+
+    sinon.assert.alwaysCalledWithMatch(deps.tradeRepo.getTrades, { endTime: curTime });
+  });
+
+  it('rejects when tradeRepo.getTrades throws error', async () => {
+    deps.tradeRepo.getTrades.rejects();
+
+    return expect(service.calculateScore(req)).rejects.toThrow();
+  });
+
+  it('calls traderScoreRepo.updateTraderScore with new score, traderID, period', async () => {
+    const score = await service.calculateScore(req);
+
+    const { traderID, period } = req;
+    sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, { traderID, period, score });
+  });
+
+  it('rejects when traderScoreRepo.updateTraderScore throws error', async () => {
+    deps.traderScoreRepo.updateTraderScore.rejects();
+
+    return expect(service.calculateScore(req)).rejects.toThrow();
+  });
+
+  it('obtains mutex with traderID and period', async () => {
+    await service.calculateScore(req);
+    const { traderID, period } = req;
+    sinon.assert.calledWithExactly(deps.traderScoreMutexFactory.obtain, { traderID, period });
+  });
+
+  it('releases mutex', async () => {
+    await service.calculateScore(req);
+    sinon.assert.called(mutex.release);
+  });
+
+  it('releases mutex when tradeRepo.getTrades throws error', async () => {
+    deps.tradeRepo.getTrades.rejects();
+
+    // eslint-disable-next-line no-empty
+    try { await service.calculateScore(req); } catch (e) {}
+
+    sinon.assert.called(mutex.release);
+  });
+
+  it('releases mutex when traderScoreRepo.updateTraderScore throws error', async () => {
+    deps.traderScoreRepo.updateTraderScore.rejects();
+
+    // eslint-disable-next-line no-empty
+    try { await service.calculateScore(req); } catch (e) {}
+
+    sinon.assert.called(mutex.release);
+  });
+
+  it('throws error when period doesn\'t exist', async () => {
+    req.period = 'test';
+    return expect(service.calculateScore(req)).rejects.toThrow('Period doesn\'t exist');
+  });
+
+  it('success when calculating global score', async () => {
+    delete req.period;
+    return expect(service.calculateScore(req)).resolves.toBeDefined();
+  });
+});
+
+describe('calculateScores', () => {
+  let service;
+
+  const req = {
+    traderID: '123',
+  };
+
+  beforeEach(() => {
+    deps.traderScorePeriodConfig = [
+      { id: 'day', duration: 60 * 60 * 24 * 1000 },
+      { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
+    ];
+
+    service = new TraderScoreService(deps);
+
+    sinon.stub(service, 'calculateScore');
+  });
+
+  it('calls calculateScore for each period', async () => {
+    await service.calculateScores(req);
+
+    deps.traderScorePeriodConfig.forEach((periodConfig) => {
+      const expectedArgs = {
+        traderID: req.traderID,
+        period: periodConfig.id,
+      };
+      sinon.assert.calledWith(service.calculateScore, expectedArgs);
+    });
+  });
+
+  it('rejects with error if calculateScore throws error', async () => {
+    service.calculateScore.rejects();
+    return expect(service.calculateScores(req)).rejects.toThrow();
   });
 });
