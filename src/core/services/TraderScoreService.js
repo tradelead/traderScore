@@ -77,9 +77,9 @@ module.exports = class TraderScoreService {
         score = compoundScore(score, trade.score);
       };
 
+      const startTime = Date.now() - periodConfig.duration;
       const endTime = Date.now();
       for (; ;) {
-        const startTime = Date.now() - periodConfig.duration;
         const trades = await this.tradeRepo.getTrades({
           traderID,
           period,

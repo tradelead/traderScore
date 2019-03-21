@@ -247,7 +247,7 @@ describe('calculateScore', () => {
     sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, { period });
   });
 
-  it('calls tradeRepo.getTrades with period startTime', async () => {
+  it('calls tradeRepo.getTrades with startTime as Date.now subtracted by period duration', async () => {
     const curTime = Date.now();
     Date.now = jest.fn(() => curTime);
 
@@ -261,17 +261,35 @@ describe('calculateScore', () => {
   });
 
   it('calls tradeRepo.getTrades with the same endTime from the start', async () => {
+    // force Date.now() to change every time it's called
     const curTime = Date.now();
     let nowIndex = 0;
     Date.now = jest.fn(() => {
-      const time = curTime - nowIndex;
+      const time = curTime + nowIndex;
       nowIndex += 1;
       return time;
     });
 
     await service.calculateScore(req);
 
-    sinon.assert.alwaysCalledWithMatch(deps.tradeRepo.getTrades, { endTime: curTime });
+    const { endTime } = deps.tradeRepo.getTrades.getCall(0).args[0];
+    sinon.assert.alwaysCalledWithMatch(deps.tradeRepo.getTrades, { endTime });
+  });
+
+  it('calls tradeRepo.getTrades with the same startTime from the start', async () => {
+    // force Date.now() to change every time it's called
+    const curTime = Date.now();
+    let nowIndex = 0;
+    Date.now = jest.fn(() => {
+      const time = curTime + nowIndex;
+      nowIndex += 1;
+      return time;
+    });
+
+    await service.calculateScore(req);
+
+    const { startTime } = deps.tradeRepo.getTrades.getCall(0).args[0];
+    sinon.assert.alwaysCalledWithMatch(deps.tradeRepo.getTrades, { startTime });
   });
 
   it('rejects when tradeRepo.getTrades throws error', async () => {
