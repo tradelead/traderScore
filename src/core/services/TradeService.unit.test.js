@@ -235,11 +235,26 @@ describe('newTrade', () => {
     sinon.assert.callCount(deps.tradeRepo.addTrade, 2);
   });
 
-  it('calls traderScoreService.incrementScore', async () => {
+  it('calls traderScoreService.incrementScores for each trade', async () => {
     const trades = await service.newTrade(defaultReq);
 
-    const expectedArgs = { trades };
-    sinon.assert.calledWith(deps.traderScoreService.incrementScores, expectedArgs);
+    trades.forEach((trade) => {
+      const { traderID, score } = trade;
+      const { time } = trade.exit;
+      const expectedArgs = { traderID, score, time };
+      sinon.assert.calledWith(deps.traderScoreService.incrementScores, expectedArgs);
+    });
+  });
+
+  it('calls traderScoreService.incrementScores for each trade synchronously', async () => {
+    deps.traderScoreService.incrementScores.onFirstCall().callsFake(() => new Promise(
+      (resolve, reject) => setTimeout(reject, 20),
+    ));
+
+    // eslint-disable-next-line
+    try { await service.newTrade(defaultReq); } catch (e) {}
+
+    sinon.assert.callCount(deps.traderScoreService.incrementScores, 1);
   });
 
   describe('data validation', () => {

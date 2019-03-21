@@ -84,12 +84,18 @@ module.exports = class TradeService {
     const tradeSavePromises = trades.map(async trade => this.tradeRepo.addTrade(trade));
     await Promise.all(tradeSavePromises);
 
-    await this.traderScoreService.incrementScores({ trades });
+    // eslint-disable-next-line no-restricted-syntax
+    for (const trade of trades) {
+      await this.traderScoreService.incrementScores({
+        traderID: trade.traderID,
+        score: trade.score,
+        time: trade.exit.time,
+      });
+    }
 
     return trades;
   }
 
-  /* eslint-disable no-await-in-loop */
   async getEntries({
     traderID,
     exchangeID,

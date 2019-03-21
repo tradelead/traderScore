@@ -17,13 +17,23 @@ module.exports = class TraderScoreService {
     this.tradeFetchLimit = tradeFetchLimit;
   }
 
-  async incrementScore({ traderID, score, period }) {
+  async incrementScore({
+    traderID,
+    period,
+    score,
+    time,
+  }) {
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
       const curScore = await this.traderScoreRepo.getTraderScore({ traderID, period });
       const newScore = compoundScore(curScore, score);
-      await this.traderScoreRepo.updateTraderScore({ traderID, period, score: newScore });
+      await this.traderScoreRepo.updateTraderScore({
+        traderID,
+        period,
+        time,
+        score: newScore,
+      });
     } catch (e) {
       throw e;
     } finally {

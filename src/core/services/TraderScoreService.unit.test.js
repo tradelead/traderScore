@@ -37,6 +37,7 @@ describe('incrementScore', () => {
       traderID: 'trader123',
       score: 25,
       period: 'day',
+      time: 123,
     };
 
     deps.traderScorePeriodConfig = [
@@ -49,7 +50,7 @@ describe('incrementScore', () => {
     service = new TraderScoreService(deps);
   });
 
-  it('calls getTraderScore with traderID and period', async () => {
+  it('calls getTraderScore with traderID & period', async () => {
     await service.incrementScore(req);
 
     const { traderID, period } = req;
@@ -60,8 +61,13 @@ describe('incrementScore', () => {
   it('updates trader score for period with compounding arithmetic', async () => {
     await service.incrementScore(req);
 
-    const { traderID, period } = req;
-    const expectedArgs = { traderID, period, score: 62.5 };
+    const { traderID, period, time } = req;
+    const expectedArgs = {
+      traderID,
+      period,
+      time,
+      score: 62.5,
+    };
     sinon.assert.calledWithExactly(deps.traderScoreRepo.updateTraderScore, expectedArgs);
   });
 
@@ -78,8 +84,13 @@ describe('incrementScore', () => {
     delete req.period;
     await service.incrementScore(req);
 
-    const { traderID, period } = req;
-    const expectedArgs = { traderID, period, score: 62.5 };
+    const { traderID, period, time } = req;
+    const expectedArgs = {
+      traderID,
+      period,
+      time,
+      score: 62.5,
+    };
     sinon.assert.calledWithExactly(deps.traderScoreRepo.updateTraderScore, expectedArgs);
   });
 
@@ -197,8 +208,8 @@ describe('calculateScore', () => {
   let req;
 
   const tradesData = [
-    { traderID: '123', score: 25 },
-    { traderID: '123', score: 28 },
+    { traderID: '123', score: 25, exit: { time: 123 } },
+    { traderID: '123', score: 28, exit: { time: 234 } },
   ];
 
   beforeEach(() => {
