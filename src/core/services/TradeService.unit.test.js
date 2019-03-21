@@ -16,18 +16,13 @@ let deps = {};
 beforeEach(() => {
   // reset deps for each test
   deps = {
-    traderScorePeriodConfig: [
-      { id: 'day', duration: 60 * 60 * 24 * 1000 },
-      { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
-    ],
     tradeRepo: {
       addTrade: sinon.stub(),
       getDailyTradeChangeStdDeviation: sinon.stub(),
       getDailyTradeChangeMean: sinon.stub(),
     },
-    traderScoreRepo: {
-      getTraderScore: sinon.stub(),
-      updateTraderScore: sinon.stub(),
+    traderScoreService: {
+      incrementScores: sinon.stub(),
     },
     traderPortfolio: {
       BTCValue: sinon.stub(),
@@ -63,7 +58,6 @@ describe('newTrade', () => {
     deps.traderPortfolio.BTCValue.resolves(100);
     deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.01);
     deps.tradeRepo.getDailyTradeChangeMean.resolves(0.03);
-    deps.traderScoreRepo.getTraderScore.resolves(100);
 
     service = new TradeService(deps);
 
@@ -241,13 +235,11 @@ describe('newTrade', () => {
     sinon.assert.callCount(deps.tradeRepo.addTrade, 2);
   });
 
-  it('calls updateTraderScores', async () => {
-    sinon.spy(service, 'updateTraderScores');
-
+  it('calls traderScoreService.incrementScore', async () => {
     const trades = await service.newTrade(defaultReq);
 
     const expectedArgs = { trades };
-    sinon.assert.calledWith(service.updateTraderScores, expectedArgs);
+    sinon.assert.calledWith(deps.traderScoreService.incrementScores, expectedArgs);
   });
 
   describe('data validation', () => {
@@ -662,76 +654,6 @@ describe('getEntryQuoteAsset', () => {
     it('is called with preferredQuoteAsset of BTC', async () => {
       sinon.assert.calledWithMatch(deps.exchangeService.findMarketQuoteAsset, { preferredQuoteAsset: 'BTC' });
     });
-  });
-});
-
-describe('updateTraderScores', () => {
-  let service;
-
-  const updateTraderScoresDefaultReq = {
-    trades: [{
-      traderID: '123',
-      score: 25,
-    }],
-  };
-
-  beforeEach(() => {
-    deps.traderScorePeriodConfig = [
-      { id: 'day', duration: 60 * 60 * 24 * 1000 },
-      { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
-    ];
-
-    deps.traderScoreRepo.getTraderScore.resolves(50);
-
-    service = new TradeService(deps);
-  });
-
-  it('calls getTraderScore correct number of time', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    sinon.assert.callCount(deps.traderScoreRepo.getTraderScore, 3);
-  });
-
-  it('calls getTraderScore with traderID and no period', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123' };
-    sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
-  });
-
-  it('calls getTraderScore with traderID and day period', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123', period: 'day' };
-    sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
-  });
-
-  it('calls getTraderScore with traderID and week period', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123', period: 'week' };
-    sinon.assert.calledWith(deps.traderScoreRepo.getTraderScore, expectedArgs);
-  });
-
-  it('updates global trader score with compounding arithmetic', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123', score: 62.5 };
-    sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
-  });
-
-  it('updates day trader score with compounding arithmetic', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123', period: 'day', score: 62.5 };
-    sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
-  });
-
-  it('updates week trader score with compounding arithmetic', async () => {
-    await service.updateTraderScores(updateTraderScoresDefaultReq);
-
-    const expectedArgs = { traderID: '123', period: 'week', score: 62.5 };
-    sinon.assert.calledWith(deps.traderScoreRepo.updateTraderScore, expectedArgs);
   });
 });
 

@@ -18,8 +18,7 @@ module.exports = class TradeService {
     traderPortfolio,
     exchangeService,
     globalMarketService,
-    traderScoreRepo,
-    traderScorePeriodConfig,
+    traderScoreService,
     getEntriesLimitPerFetch,
     orderRepo,
     transferRepo,
@@ -28,8 +27,7 @@ module.exports = class TradeService {
     this.traderPortfolio = traderPortfolio;
     this.exchangeService = exchangeService;
     this.globalMarketService = globalMarketService;
-    this.traderScoreRepo = traderScoreRepo;
-    this.traderScorePeriodConfig = traderScorePeriodConfig;
+    this.traderScoreService = traderScoreService;
     this.orderRepo = orderRepo;
     this.transferRepo = transferRepo;
     this.getEntriesLimitPerFetch = getEntriesLimitPerFetch;
@@ -86,7 +84,7 @@ module.exports = class TradeService {
     const tradeSavePromises = trades.map(async trade => this.tradeRepo.addTrade(trade));
     await Promise.all(tradeSavePromises);
 
-    await this.updateTraderScores({ trades });
+    await this.traderScoreService.incrementScores({ trades });
 
     return trades;
   }
@@ -234,50 +232,6 @@ module.exports = class TradeService {
     }
 
     throw new Error('Unexpected entry type');
-  }
-
-  async updateTraderScores({ trades }) {
-    const promises = trades.map(async (trade) => {
-      const { traderID, score } = trade;
-
-      const tradePromises = [];
-
-      const updateGlobalScore = this.updateTraderScore({ traderID, score });
-      tradePromises.push(updateGlobalScore);
-
-      const updatePeriodScore = (periodConfig) => {
-        const period = periodConfig.id;
-        return this.updateTraderScore({ traderID, score, period });
-      };
-      const updatePeriodScores = this.traderScorePeriodConfig.map(updatePeriodScore);
-
-      tradePromises.push(...updatePeriodScores);
-
-      await Promise.all(tradePromises);
-    });
-
-    await Promise.all(promises);
-  }
-
-  async updateTraderScore({ traderID, score, period }) {
-    const getReq = { traderID };
-
-    if (typeof period !== 'undefined') {
-      getReq.period = period;
-    }
-
-    const traderScore = await this.traderScoreRepo.getTraderScore(getReq);
-
-    const compoundScore = (current, add) => current * ((add / 100) + 1);
-    const newTraderScore = compoundScore(traderScore, score);
-
-    const updateReq = { traderID, score: newTraderScore };
-
-    if (typeof period !== 'undefined') {
-      updateReq.period = period;
-    }
-
-    await this.traderScoreRepo.updateTraderScore(updateReq);
   }
 
   async createTradeObj({
