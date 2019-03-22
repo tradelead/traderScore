@@ -26,8 +26,26 @@ module.exports = class TraderScoreService {
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
-      const curScore = await this.traderScoreRepo.getTraderScore({ traderID, period });
-      const newScore = compoundScore(curScore, score);
+      const otherScores = await this.traderScoreRepo.getTradersScoreHistories({
+        traderID,
+        period,
+        startTime: time,
+        limit: 1,
+      });
+
+      if (Array.isArray(otherScores) && otherScores.length > 0) {
+        throw new Error('Must be most recent score to increment');
+      }
+
+      const [curScore] = await this.traderScoreRepo.getTradersScoreHistories({
+        traderID,
+        period,
+        endTime: time,
+        limit: 1,
+      });
+
+      const newScore = compoundScore(curScore.score, score);
+
       await this.traderScoreRepo.updateTraderScore({
         traderID,
         period,
@@ -41,26 +59,19 @@ module.exports = class TraderScoreService {
     }
   }
 
-  async incrementScores({ trades }) {
+  async incrementScores({ traderID, score, time }) {
     const promises = [];
 
-    if (!trades || !Array.isArray(trades) || trades.length === 0) {
-      throw new Error('Trades invalid');
-    }
+    promises.push(this.incrementScore({ traderID, score, time }));
 
-    trades.forEach((trade) => {
-      const { traderID, score } = trade;
+    const periodPromises = this.traderScorePeriodConfig.map(periodConfig => this.incrementScore({
+      traderID,
+      score,
+      time,
+      period: periodConfig.id,
+    }));
 
-      promises.push(this.incrementScore({ traderID, score }));
-
-      const periodPromises = this.traderScorePeriodConfig.map(periodConfig => this.incrementScore({
-        traderID,
-        score,
-        period: periodConfig.id,
-      }));
-
-      promises.push(...periodPromises);
-    });
+    promises.push(...periodPromises);
 
     await Promise.all(promises);
   }
@@ -83,12 +94,19 @@ module.exports = class TraderScoreService {
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
-      const compoundTrade = (trade) => {
-        score = compoundScore(score, trade.score);
-      };
-
       const startTime = Date.now() - periodConfig.duration;
       const endTime = Date.now();
+
+      const calcBulkUpdateScores = (trade) => {
+        score = compoundScore(score, trade.score);
+        return {
+          traderID,
+          period,
+          score,
+          time: trade.exit.time,
+        };
+      };
+
       for (; ;) {
         const trades = await this.tradeRepo.getTrades({
           traderID,
@@ -102,12 +120,13 @@ module.exports = class TraderScoreService {
           break;
         }
 
-        trades.forEach(compoundTrade);
+        const traderScores = trades.map(calcBulkUpdateScores);
+
+        await this.traderScoreRepo.bulkUpdateTraderScore(traderScores);
 
         offset += this.tradeFetchLimit;
       }
 
-      await this.traderScoreRepo.updateTraderScore({ traderID, period, score });
       return score;
     } catch (e) {
       throw e;
@@ -121,6 +140,8 @@ module.exports = class TraderScoreService {
       const period = periodConfig.id;
       await this.calculateScore({ traderID, period });
     });
+
+    promises.push(this.calculateScore({ traderID }));
 
     await Promise.all(promises);
   }
