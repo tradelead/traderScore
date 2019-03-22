@@ -43,8 +43,6 @@ module.exports = class IngressTraderExchange {
 
     const { traderID, exchangeID } = value;
 
-    await this.exchangeWatchRepo.add({ traderID, exchangeID });
-
     const limit = this.exchangeActivityLimitPerFetch;
 
     const activity = [];

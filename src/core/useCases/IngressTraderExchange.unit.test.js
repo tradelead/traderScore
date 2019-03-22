@@ -101,21 +101,6 @@ beforeEach(() => {
   deps.traderExchangeRepo.getExchanges.resolves([]);
 });
 
-it('adds to exchangeWatchRepo', async () => {
-  const useCase = new IngressTraderExchange(deps);
-  await useCase.execute(defaultReq);
-
-  const expectedArg = { traderID: defaultReq.traderID, exchangeID: defaultReq.exchangeID };
-  sinon.assert.calledWith(deps.exchangeWatchRepo.add, expectedArg);
-});
-
-it('throw error from exchangeWatchRepo.add', async () => {
-  deps.exchangeWatchRepo.add.rejects();
-  const useCase = new IngressTraderExchange(deps);
-
-  await expect(useCase.execute(defaultReq)).rejects.toThrow();
-});
-
 describe('exchangeService.getFilledOrders', () => {
   test('called with exchangeID', async () => {
     const useCase = new IngressTraderExchange(deps);
