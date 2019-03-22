@@ -26,25 +26,37 @@ module.exports = class TraderScoreService {
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
-      const otherScores = await this.traderScoreRepo.getTradersScoreHistories({
+      const otherScores = await this.traderScoreRepo.getTradersScoreHistories([{
         traderID,
         period,
         startTime: time,
         limit: 1,
-      });
+        sort: 'asc',
+      }]);
 
-      if (Array.isArray(otherScores) && otherScores.length > 0) {
+      if (
+        otherScores
+        && otherScores[0]
+        && Array.isArray(otherScores[0])
+        && otherScores[0].length > 0
+      ) {
         throw new Error('Must be most recent score to increment');
       }
 
-      const [curScore] = await this.traderScoreRepo.getTradersScoreHistories({
+      const curScores = await this.traderScoreRepo.getTradersScoreHistories([{
         traderID,
         period,
         endTime: time,
         limit: 1,
-      });
+        sort: 'desc',
+      }]);
 
-      const newScore = compoundScore(curScore.score, score);
+      let curScore = 1;
+      if (curScores && curScores[0] && Array.isArray(curScores[0])) {
+        curScore = curScores[0][0].score;
+      }
+
+      const newScore = compoundScore(curScore, score);
 
       await this.traderScoreRepo.updateTraderScore({
         traderID,

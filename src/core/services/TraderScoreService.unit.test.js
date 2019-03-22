@@ -46,22 +46,24 @@ describe('incrementScore', () => {
       { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
     ];
 
+    const endTimeMatcher = arg1 => Array.isArray(arg1) && arg1[0].endTime === req.time;
     deps.traderScoreRepo.getTradersScoreHistories
-      .withArgs(sinon.match.has('endTime', req.time))
-      .resolves([{ traderID: req.traderID, score: 50 }]);
+      .withArgs(sinon.match(endTimeMatcher))
+      .resolves([[{ traderID: req.traderID, score: 50 }]]);
 
     service = new TraderScoreService(deps);
   });
 
   it('throws error if getTradersScoreHistories after req.time isn\'t empty', async () => {
     deps.traderScoreRepo.getTradersScoreHistories
-      .withArgs({
+      .withArgs([{
         traderID: req.traderID,
         startTime: req.time,
         period: req.period,
         limit: 1,
-      })
-      .resolves([{ traderID: req.traderID, score: 1 }]);
+        sort: 'asc',
+      }])
+      .resolves([[{ traderID: req.traderID, score: 1 }]]);
 
     const expectedMsg = 'Must be most recent score to increment';
     expect(service.incrementScore(req)).rejects.toThrow(expectedMsg);
@@ -70,24 +72,26 @@ describe('incrementScore', () => {
   it('calls getTradersScoreHistories with correct params', async () => {
     await service.incrementScore(req);
 
-    sinon.assert.calledWithExactly(deps.traderScoreRepo.getTradersScoreHistories, {
+    sinon.assert.calledWithExactly(deps.traderScoreRepo.getTradersScoreHistories, [{
       traderID: req.traderID,
       endTime: req.time,
       period: req.period,
       limit: 1,
-    });
+      sort: 'desc',
+    }]);
   });
 
   it('calls getTradersScoreHistories with correct params when no period', async () => {
     delete req.period;
     await service.incrementScore(req);
 
-    sinon.assert.calledWithExactly(deps.traderScoreRepo.getTradersScoreHistories, {
+    sinon.assert.calledWithExactly(deps.traderScoreRepo.getTradersScoreHistories, [{
       traderID: req.traderID,
       endTime: req.time,
       period: req.period,
       limit: 1,
-    });
+      sort: 'desc',
+    }]);
   });
 
   it('updates trader score for period with compounding arithmetic', async () => {
