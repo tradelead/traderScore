@@ -107,7 +107,7 @@ describe('exchangeService.getFilledOrders', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { exchangeID: defaultReq.exchangeID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
+    sinon.assert.alwaysCalledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
   });
 
   test('called with traderID', async () => {
@@ -115,7 +115,7 @@ describe('exchangeService.getFilledOrders', () => {
     await useCase.execute(defaultReq);
 
     const expectedArgs = { traderID: defaultReq.traderID };
-    sinon.assert.calledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
+    sinon.assert.alwaysCalledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
   });
 
   test('called with traderID on multi fetch', async () => {

@@ -11,7 +11,6 @@ module.exports = class IngressTraderExchange {
     ingressFilledOrder,
     ingressWithdrawal,
     exchangeService,
-    exchangeWatchRepo,
     orderRepo,
     transferRepo,
     exchangeActivityLimitPerFetch,
@@ -22,7 +21,6 @@ module.exports = class IngressTraderExchange {
     this.ingressFilledOrder = ingressFilledOrder;
     this.ingressWithdrawal = ingressWithdrawal;
     this.exchangeService = exchangeService;
-    this.exchangeWatchRepo = exchangeWatchRepo;
     this.orderRepo = orderRepo;
     this.transferRepo = transferRepo;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
@@ -43,69 +41,27 @@ module.exports = class IngressTraderExchange {
 
     const { traderID, exchangeID } = value;
 
-    const limit = this.exchangeActivityLimitPerFetch;
+    const lastOrders = await this.orderRepo.find({ traderID, limit: 1, sort: 'desc' });
+    const ordersStartTime = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
 
-    const activity = [];
-    let ordersLeft = 0;
-    let depositsLeft = 0;
-    let withdrawalsLeft = 0;
+    const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
+    const depositsStartTime = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
 
-    await Promise.all([
-      (async () => {
-        const lastOrders = await this.orderRepo.find({ traderID, limit: 1, sort: 'desc' });
-        const orderStart = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
-        let filledOrders = await this.exchangeService.getFilledOrders({
-          exchangeID,
-          traderID,
-          limit,
-          startTime: orderStart,
-        });
-        filledOrders = filledOrders.map(order => Object.assign({}, order, { type: 'order' }));
-
-        ordersLeft = filledOrders.length;
-        activity.push(...filledOrders);
-      })(),
-
-      (async () => {
-        const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
-        const depositStart = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
-        let deposits = await this.exchangeService.getSuccessfulDeposits({
-          exchangeID,
-          traderID,
-          limit,
-          startTime: depositStart,
-        });
-        deposits = deposits.map(deposit => Object.assign({}, deposit, { type: 'deposit' }));
-
-        depositsLeft = deposits.length;
-        activity.push(...deposits);
-      })(),
-
-      (async () => {
-        const lastWithdraws = await this.transferRepo.findWithdrawals({ traderID, limit: 1, sort: 'desc' });
-        const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
-        const withdrawStart = (hasWithdraws ? lastWithdraws[0].time : 0);
-        let withdrawals = await this.exchangeService.getSuccessfulWithdrawals({
-          exchangeID,
-          traderID,
-          limit,
-          startTime: withdrawStart,
-        });
-        withdrawals = withdrawals.map(withdrawal => Object.assign({}, withdrawal, { type: 'withdrawal' }));
-
-        withdrawalsLeft = withdrawals.length;
-        activity.push(...withdrawals);
-      })(),
-    ]);
-
-    activity.sort(this.descSort);
+    const lastWithdraws = await this.transferRepo.findWithdrawals({ traderID, limit: 1, sort: 'desc' });
+    const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
+    const withdrawalsStartTime = (hasWithdraws ? lastWithdraws[0].time : 0);
 
     await this.ingressActivity({
-      activity,
-      ordersLeft,
-      depositsLeft,
-      withdrawalsLeft,
+      firstRun: true,
+      activity: [],
+      ordersLeft: 0,
+      ordersStartTime,
+      depositsLeft: 0,
+      depositsStartTime,
+      withdrawalsLeft: 0,
+      withdrawalsStartTime,
       traderID,
+      exchangeID,
     });
 
     const traderExchanges = await this.traderExchangeRepo.getExchanges(traderID);
@@ -119,76 +75,100 @@ module.exports = class IngressTraderExchange {
   async ingressActivity({
     activity,
     ordersLeft,
+    ordersStartTime,
     depositsLeft,
+    depositsStartTime,
     withdrawalsLeft,
+    withdrawalsStartTime,
     traderID,
+    exchangeID,
+    firstRun,
   }) {
-    if (ordersLeft === 0 && depositsLeft === 0 && withdrawalsLeft === 0) {
+    if (ordersLeft === 0 && depositsLeft === 0 && withdrawalsLeft === 0 && !firstRun) {
       return;
     }
-
-    const item = activity.pop();
 
     let ordersLeftNew = ordersLeft;
     let depositsLeftNew = depositsLeft;
     let withdrawalsLeftNew = withdrawalsLeft;
 
-    if (item.type === 'order') {
-      await this.ingressFilledOrder.execute(item);
-      ordersLeftNew -= 1;
-    } else if (item.type === 'deposit') {
-      await this.ingressDeposit.execute(item);
-      depositsLeftNew -= 1;
-    } else if (item.type === 'withdrawal') {
-      await this.ingressWithdrawal.execute(item);
-      withdrawalsLeftNew -= 1;
+    const item = activity.pop();
+
+    if (item) {
+      if (item.type === 'order') {
+        await this.ingressFilledOrder.execute(item);
+        ordersLeftNew -= 1;
+      } else if (item.type === 'deposit') {
+        await this.ingressDeposit.execute(item);
+        depositsLeftNew -= 1;
+      } else if (item.type === 'withdrawal') {
+        await this.ingressWithdrawal.execute(item);
+        withdrawalsLeftNew -= 1;
+      }
     }
 
-    let additionalItems = [];
-    const startTime = item.time;
-    let type = '';
+    const addToActivity = ({ activity: curActivity, additionalItems, type }) => {
+      const activityNew = curActivity.slice(0);
+
+      if (additionalItems && additionalItems.length > 0) {
+        const addType = obj => Object.assign({}, obj, { type });
+        const additionalItemsWithType = additionalItems.map(addType);
+        activityNew.push(...additionalItemsWithType);
+      }
+
+      return activityNew;
+    };
+
+    let activityNew = activity.slice(0);
     const limit = this.exchangeActivityLimitPerFetch;
-    if (ordersLeftNew === 0 && ordersLeft !== 0) {
-      type = 'order';
-      additionalItems = await this.exchangeService.getFilledOrders({ traderID, limit, startTime });
-      ordersLeftNew = additionalItems.length;
-    } else if (depositsLeftNew === 0 && depositsLeft !== 0) {
-      type = 'deposit';
-      additionalItems = await this.exchangeService.getSuccessfulDeposits({
+    if ((ordersLeftNew === 0 && ordersLeft !== 0) || firstRun) {
+      const startTime = (!firstRun ? item.time : ordersStartTime);
+      const type = 'order';
+      const items = await this.exchangeService.getFilledOrders({
         traderID,
+        exchangeID,
         limit,
         startTime,
       });
-      depositsLeftNew = additionalItems.length;
-    } else if (withdrawalsLeftNew === 0 && withdrawalsLeft !== 0) {
-      type = 'withdrawal';
-      additionalItems = await this.exchangeService.getSuccessfulWithdrawals({
-        traderID,
-        limit,
-        startTime,
-      });
-      withdrawalsLeftNew = additionalItems.length;
+      ordersLeftNew = items.length;
+      activityNew = addToActivity({ activity: activityNew, additionalItems: items, type });
     }
 
-    const activityNew = this.addToActivity({ activity, additionalItems, type });
+    if ((depositsLeftNew === 0 && depositsLeft !== 0) || firstRun) {
+      const startTime = (!firstRun ? item.time : depositsStartTime);
+      const type = 'deposit';
+      const items = await this.exchangeService.getSuccessfulDeposits({
+        traderID,
+        exchangeID,
+        limit,
+        startTime,
+      });
+      depositsLeftNew = items.length;
+      activityNew = addToActivity({ activity: activityNew, additionalItems: items, type });
+    }
+
+    if ((withdrawalsLeftNew === 0 && withdrawalsLeft !== 0) || firstRun) {
+      const startTime = (!firstRun ? item.time : withdrawalsStartTime);
+      const type = 'withdrawal';
+      const items = await this.exchangeService.getSuccessfulWithdrawals({
+        traderID,
+        exchangeID,
+        limit,
+        startTime,
+      });
+      withdrawalsLeftNew = items.length;
+      activityNew = addToActivity({ activity: activityNew, additionalItems: items, type });
+    }
+
+    activityNew.sort(this.descSort);
+
     await this.ingressActivity({
       activity: activityNew,
       ordersLeft: ordersLeftNew,
       depositsLeft: depositsLeftNew,
       withdrawalsLeft: withdrawalsLeftNew,
       traderID,
+      exchangeID,
     });
-  }
-
-  addToActivity({ activity, additionalItems, type }) {
-    const activityNew = activity.slice(0);
-
-    if (additionalItems && additionalItems.length > 0) {
-      const additionalItemsWithType = additionalItems.map(obj => Object.assign({}, obj, { type }));
-      activityNew.push(...additionalItemsWithType);
-      activityNew.sort(this.descSort);
-    }
-
-    return activityNew;
   }
 };
