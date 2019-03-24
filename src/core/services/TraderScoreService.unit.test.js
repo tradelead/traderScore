@@ -54,21 +54,6 @@ describe('incrementScore', () => {
     service = new TraderScoreService(deps);
   });
 
-  it('throws error if getTradersScoreHistories after req.time isn\'t empty', async () => {
-    deps.traderScoreRepo.getTradersScoreHistories
-      .withArgs([{
-        traderID: req.traderID,
-        startTime: req.time,
-        period: req.period,
-        limit: 1,
-        sort: 'asc',
-      }])
-      .resolves([[{ traderID: req.traderID, score: 1 }]]);
-
-    const expectedMsg = 'Must be most recent score to increment';
-    expect(service.incrementScore(req)).rejects.toThrow(expectedMsg);
-  });
-
   it('calls getTradersScoreHistories with correct params', async () => {
     await service.incrementScore(req);
 
@@ -98,13 +83,13 @@ describe('incrementScore', () => {
     await service.incrementScore(req);
 
     const { traderID, period, time } = req;
-    const expectedArgs = {
+    const expectedArgs = [{
       traderID,
       period,
       time,
       score: 62.5,
-    };
-    sinon.assert.calledWithExactly(deps.traderScoreRepo.updateTraderScore, expectedArgs);
+    }];
+    sinon.assert.calledWithExactly(deps.traderScoreRepo.bulkUpdateTraderScore, expectedArgs);
   });
 
   it('updates global trader score when no period with compounding arithmetic', async () => {
@@ -112,23 +97,65 @@ describe('incrementScore', () => {
     await service.incrementScore(req);
 
     const { traderID, period, time } = req;
-    const expectedArgs = {
+    const expectedArgs = [{
       traderID,
       period,
       time,
       score: 62.5,
-    };
-    sinon.assert.calledWithExactly(deps.traderScoreRepo.updateTraderScore, expectedArgs);
+    }];
+    sinon.assert.calledWithExactly(deps.traderScoreRepo.bulkUpdateTraderScore, expectedArgs);
+  });
+
+  it('recalculate score for getTradersScoreHistories after req.time', async () => {
+    deps.traderScoreRepo.getTradersScoreHistories
+      .withArgs([{
+        traderID: req.traderID,
+        startTime: req.time,
+        period: req.period,
+        sort: 'asc',
+      }])
+      .resolves([[
+        { traderID: req.traderID, score: 72, time: 123 },
+        { traderID: req.traderID, score: 81, time: 234 },
+      ]]);
+
+    // new expected scores: 90, 101.25
+    // Score is divided by their past previous score to get their multiplier,
+    // then multiply that by current score.
+
+    await service.incrementScore(req);
+
+    const { traderID, period, time } = req;
+    sinon.assert.calledWith(deps.traderScoreRepo.bulkUpdateTraderScore, [
+      {
+        traderID,
+        period,
+        time,
+        score: 62.5,
+      },
+      {
+        traderID,
+        period,
+        score: 90, // recalculated score
+        time: 123,
+      },
+      {
+        traderID,
+        period,
+        score: 101.25, // recalculated score
+        time: 234,
+      },
+    ]);
   });
 
   it('rejects with error from getTradersScoreHistories', async () => {
     deps.traderScoreRepo.getTradersScoreHistories.rejects();
-    expect(service.incrementScore(req)).rejects.toThrow();
+    return expect(service.incrementScore(req)).rejects.toThrow();
   });
 
   it('rejects with error from updateTraderScore', async () => {
-    deps.traderScoreRepo.updateTraderScore.rejects();
-    expect(service.incrementScore(req)).rejects.toThrow();
+    deps.traderScoreRepo.bulkUpdateTraderScore.rejects();
+    return expect(service.incrementScore(req)).rejects.toThrow();
   });
 
   it('obtains mutex with traderID and period', async () => {

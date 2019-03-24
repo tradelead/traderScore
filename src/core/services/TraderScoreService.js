@@ -26,23 +26,6 @@ module.exports = class TraderScoreService {
     const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
 
     try {
-      const otherScores = await this.traderScoreRepo.getTradersScoreHistories([{
-        traderID,
-        period,
-        startTime: time,
-        limit: 1,
-        sort: 'asc',
-      }]);
-
-      if (
-        otherScores
-        && otherScores[0]
-        && Array.isArray(otherScores[0])
-        && otherScores[0].length > 0
-      ) {
-        throw new Error('Must be most recent score to increment');
-      }
-
       const curScores = await this.traderScoreRepo.getTradersScoreHistories([{
         traderID,
         period,
@@ -58,12 +41,36 @@ module.exports = class TraderScoreService {
 
       const newScore = compoundScore(curScore, score);
 
-      await this.traderScoreRepo.updateTraderScore({
+      const futureScores = await this.traderScoreRepo.getTradersScoreHistories([{
+        traderID,
+        period,
+        startTime: time,
+        sort: 'asc',
+      }]);
+
+      const updatedScores = [{
         traderID,
         period,
         time,
         score: newScore,
-      });
+      }];
+
+      if (Array.isArray(futureScores) && Array.isArray(futureScores[0])) {
+        futureScores[0].forEach((futureScore, i) => {
+          const lastScore = (i === 0 ? curScore : futureScores[0][i - 1].score);
+
+          const multiplier = futureScore.score / lastScore;
+          const recalculatedScore = multiplier * updatedScores[i].score;
+          updatedScores.push({
+            traderID,
+            period,
+            time: futureScore.time,
+            score: recalculatedScore,
+          });
+        });
+      }
+
+      await this.traderScoreRepo.bulkUpdateTraderScore(updatedScores);
     } catch (e) {
       throw e;
     } finally {
