@@ -12,6 +12,7 @@ const schema = Joi.object().keys({
   time: Joi.number().greater(0).required().label('Time'),
   quantity: Joi.number().positive().required().label('Quantity'),
   price: Joi.number().positive().required().label('Price'),
+  past: Joi.boolean().label('Past'),
 }).unknown();
 
 module.exports = class IngressFilledOrder {
@@ -57,6 +58,7 @@ module.exports = class IngressFilledOrder {
       asset: tradeAsset,
       exitQuantity: tradeQty,
       exitTime: order.time,
+      incrementScores: !value.past,
     });
 
     try {

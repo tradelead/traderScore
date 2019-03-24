@@ -534,17 +534,30 @@ describe('ingress activity', () => {
     // assert
     expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
   });
+
+  test('calls ingressFilledOrder with past true', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.alwaysCalledWithMatch(deps.ingressFilledOrder.execute, { past: true });
+  });
+
+  test('calls ingressDeposit with past true', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.alwaysCalledWithMatch(deps.ingressDeposit.execute, { past: true });
+  });
+
+  test('calls ingressWithdrawal with past true', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.alwaysCalledWithMatch(deps.ingressWithdrawal.execute, { past: true });
+  });
 });
 
-test('calculates trader scores if trader has other exchanges', async () => {
-  // setup
-  deps.traderExchangeRepo.getExchanges
-    .withArgs(defaultReq.traderID)
-    .resolves([
-      { id: 'bittrex' },
-      { id: 'binance' },
-    ]);
-
+test('calculates trader scores', async () => {
   // run
   const useCase = new IngressTraderExchange(deps);
   await useCase.execute(defaultReq);
@@ -553,7 +566,7 @@ test('calculates trader scores if trader has other exchanges', async () => {
   sinon.assert.calledWith(deps.traderScoreService.calculateScores, defaultReq.traderID);
 });
 
-test('doesn\'t calculate trader scores if trader has no other exchanges', async () => {
+test('calculate trader scores if trader has no other exchanges', async () => {
   // setup
   deps.traderExchangeRepo.getExchanges.resolves([
     { id: 'binance' },
@@ -564,7 +577,7 @@ test('doesn\'t calculate trader scores if trader has no other exchanges', async 
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.notCalled(deps.traderScoreService.calculateScores);
+  sinon.assert.calledWith(deps.traderScoreService.calculateScores, defaultReq.traderID);
 });
 
 test('rejects if traderScoreService.calculateScores errors', async () => {

@@ -10,6 +10,7 @@ const schema = Joi.object().keys({
   asset: Joi.string().min(2).max(8).required().label('Asset'),
   exitQuantity: Joi.number().greater(0).required().label('Exit Quantity'),
   exitTime: Joi.number().integer().greater(0).required().label('Exit Time'),
+  incrementScores: Joi.boolean().default(true).label('Increment Scores'),
 });
 
 module.exports = class TradeService {
@@ -84,13 +85,15 @@ module.exports = class TradeService {
     const tradeSavePromises = trades.map(async trade => this.tradeRepo.addTrade(trade));
     await Promise.all(tradeSavePromises);
 
-    // eslint-disable-next-line no-restricted-syntax
-    for (const trade of trades) {
-      await this.traderScoreService.incrementScores({
-        traderID: trade.traderID,
-        score: trade.score,
-        time: trade.exit.time,
-      });
+    if (value.incrementScores) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const trade of trades) {
+        await this.traderScoreService.incrementScores({
+          traderID: trade.traderID,
+          score: trade.score,
+          time: trade.exit.time,
+        });
+      }
     }
 
     return trades;

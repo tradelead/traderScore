@@ -64,10 +64,7 @@ module.exports = class IngressTraderExchange {
       exchangeID,
     });
 
-    const traderExchanges = await this.traderExchangeRepo.getExchanges(traderID);
-    if (traderExchanges.length > 1) {
-      await this.traderScoreService.calculateScores(traderID);
-    }
+    await this.traderScoreService.calculateScores(traderID);
 
     return true;
   }
@@ -111,8 +108,8 @@ module.exports = class IngressTraderExchange {
       const activityNew = curActivity.slice(0);
 
       if (additionalItems && additionalItems.length > 0) {
-        const addType = obj => Object.assign({}, obj, { type });
-        const additionalItemsWithType = additionalItems.map(addType);
+        const addTypeAndPast = obj => Object.assign({}, obj, { type, past: true });
+        const additionalItemsWithType = additionalItems.map(addTypeAndPast);
         activityNew.push(...additionalItemsWithType);
       }
 

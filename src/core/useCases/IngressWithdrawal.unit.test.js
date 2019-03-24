@@ -11,24 +11,28 @@ const defaultReq = {
   time: Date.now(),
 };
 
-const unitOfWork = {
-  transferRepo: {
-    addWithdrawal: sinon.stub(),
-  },
-  tradeService: {
-    newTrade: sinon.stub(),
-  },
-  complete: sinon.stub(),
-  rollback: sinon.stub(),
-};
-
-const unitOfWorkFactory = {
-  create: async () => unitOfWork,
-};
-
-const deps = { unitOfWorkFactory };
+let unitOfWork;
+let unitOfWorkFactory;
+let deps;
 
 beforeEach(() => {
+  unitOfWork = {
+    transferRepo: {
+      addWithdrawal: sinon.stub(),
+    },
+    tradeService: {
+      newTrade: sinon.stub(),
+    },
+    complete: sinon.stub(),
+    rollback: sinon.stub(),
+  };
+
+  unitOfWorkFactory = {
+    create: async () => unitOfWork,
+  };
+
+  deps = { unitOfWorkFactory };
+
   unitOfWork.transferRepo.addWithdrawal.resolves('withdrawal123');
 });
 
@@ -63,6 +67,85 @@ it('throw error on addWithdrawal error', async () => {
 
   const useCase = new IngressWithdrawal(deps);
   expect(useCase.execute(defaultReq)).rejects.toThrow();
+});
+
+describe('new trade', () => {
+  test('new trade use case called', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeCalled = unitOfWork.tradeService.newTrade.called;
+    expect(newTradeCalled).toBe(true);
+  });
+
+  test('called with order sourceID', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('sourceID', defaultReq.sourceID);
+  });
+
+  test('called with sourceType as withdrawal', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('sourceType', 'withdrawal');
+  });
+
+  test('called with withdrawal traderID', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('traderID', defaultReq.traderID);
+  });
+
+  test('called with withdrawal exchangeID', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('exchangeID', defaultReq.exchangeID);
+  });
+
+  test('called with withdrawal asset', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('asset', defaultReq.asset);
+  });
+
+  test('called with incrementScores as false if past is true', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    const req = Object.assign({}, defaultReq);
+    req.past = true;
+    await useCase.execute(req);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('incrementScores', false);
+  });
+
+  test('called with withdrawal quantity as exitQuantity', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    const req = Object.assign({}, defaultReq);
+    req.quantity = 0.2;
+
+    await useCase.execute(req);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('exitQuantity', 0.2);
+  });
+
+  test('called with withdrawal time as exitTime', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    await useCase.execute(defaultReq);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('exitTime', defaultReq.time);
+  });
 });
 
 describe('data validation', () => {

@@ -246,6 +246,14 @@ describe('newTrade', () => {
     });
   });
 
+  it('doesn\'t call traderScoreService.incrementScores for each trade', async () => {
+    const req = Object.assign({}, defaultReq);
+    req.incrementScores = false;
+    await service.newTrade(req);
+
+    sinon.assert.notCalled(deps.traderScoreService.incrementScores);
+  });
+
   it('calls traderScoreService.incrementScores for each trade synchronously', async () => {
     deps.traderScoreService.incrementScores.onFirstCall().callsFake(() => new Promise(
       (resolve, reject) => setTimeout(reject, 20),
