@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "aws-sdk": "^2.427.0",
     "bignumber.js": "^8.1.1",
     "joi": "^14.3.1"
   },

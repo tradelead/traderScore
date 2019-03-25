@@ -3,7 +3,8 @@
   "plugins": ["jest"],
   "rules": {
     "func-names": ["error", "never"],
-    "no-await-in-loop": 0
+    "no-await-in-loop": 0,
+    "no-console": 0
   },
   "env": {
     "jest/globals": true
