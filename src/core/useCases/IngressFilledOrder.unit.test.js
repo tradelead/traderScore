@@ -2,18 +2,7 @@ const sinon = require('sinon');
 const Order = require('../models/Order');
 const IngressFilledOrder = require('./IngressFilledOrder');
 
-const defaultReq = {
-  sourceID: 'source123',
-  traderID: 'trader123',
-  exchangeID: 'exchange123',
-  side: 'buy',
-  asset: 'ETH',
-  quoteAsset: 'BTC',
-  quantity: 0.2,
-  time: Date.now(),
-  price: 0.1,
-};
-
+let defaultReq = {};
 let unitOfWork = {};
 
 const unitOfWorkFactory = {
@@ -23,6 +12,18 @@ const unitOfWorkFactory = {
 const deps = { unitOfWorkFactory };
 
 beforeEach(() => {
+  defaultReq = {
+    sourceID: 'source123',
+    traderID: 'trader123',
+    exchangeID: 'exchange123',
+    side: 'buy',
+    asset: 'ETH',
+    quoteAsset: 'BTC',
+    quantity: 0.2,
+    time: Date.now(),
+    price: 0.1,
+  };
+
   unitOfWork = {
     orderRepo: {
       add: sinon.stub(),
@@ -30,14 +31,32 @@ beforeEach(() => {
     tradeService: {
       newTrade: sinon.stub(),
     },
+    exchangeIngressRepo: {
+      isComplete: sinon.stub(),
+    },
     complete: sinon.stub(),
     rollback: sinon.stub(),
   };
 
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
   unitOfWork.orderRepo.add.resolves('order123');
 });
 
 describe('execute', () => {
+  it('throws error if ingress not complete when past false', async () => {
+    unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+    const useCase = new IngressFilledOrder(deps);
+    defaultReq.past = false;
+    return expect(useCase.execute(defaultReq)).rejects.toThrow('Exchange ingress not complete');
+  });
+
+  it('does not throws error if ingress not complete when past true', async () => {
+    unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+    const useCase = new IngressFilledOrder(deps);
+    defaultReq.past = true;
+    return expect(useCase.execute(defaultReq)).resolves.toBeUndefined();
+  });
+
   it('completes unit of work on success', async () => {
     const useCase = new IngressFilledOrder(deps);
     await useCase.execute(defaultReq);

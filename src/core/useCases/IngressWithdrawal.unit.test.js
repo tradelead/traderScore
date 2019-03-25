@@ -2,26 +2,30 @@ const sinon = require('sinon');
 const Withdrawal = require('../models/Withdrawal');
 const IngressWithdrawal = require('./IngressWithdrawal');
 
-const defaultReq = {
-  sourceID: 'source123',
-  traderID: 'trader123',
-  exchangeID: 'exchange123',
-  asset: 'ETH',
-  quantity: 2.123,
-  time: Date.now(),
-};
-
+let defaultReq;
 let unitOfWork;
 let unitOfWorkFactory;
 let deps;
 
 beforeEach(() => {
+  defaultReq = {
+    sourceID: 'source123',
+    traderID: 'trader123',
+    exchangeID: 'exchange123',
+    asset: 'ETH',
+    quantity: 2.123,
+    time: Date.now(),
+  };
+
   unitOfWork = {
     transferRepo: {
       addWithdrawal: sinon.stub(),
     },
     tradeService: {
       newTrade: sinon.stub(),
+    },
+    exchangeIngressRepo: {
+      isComplete: sinon.stub(),
     },
     complete: sinon.stub(),
     rollback: sinon.stub(),
@@ -33,7 +37,22 @@ beforeEach(() => {
 
   deps = { unitOfWorkFactory };
 
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
   unitOfWork.transferRepo.addWithdrawal.resolves('withdrawal123');
+});
+
+it('throws error if ingress not complete when past false', async () => {
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+  const useCase = new IngressWithdrawal(deps);
+  defaultReq.past = false;
+  return expect(useCase.execute(defaultReq)).rejects.toThrow('Exchange ingress not complete');
+});
+
+it('does not throws error if ingress not complete when past true', async () => {
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+  const useCase = new IngressWithdrawal(deps);
+  defaultReq.past = true;
+  return expect(useCase.execute(defaultReq)).resolves.toBeUndefined();
 });
 
 it('saves withdrawal', async () => {

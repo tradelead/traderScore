@@ -8,6 +8,7 @@ const schema = Joi.object().keys({
   asset: Joi.string().min(2).max(8).uppercase().required().label('Asset'),
   time: Joi.number().greater(0).required().label('Time'),
   quantity: Joi.number().positive().required().label('Quantity'),
+  past: Joi.boolean().label('Past'),
 }).unknown();
 
 module.exports = class IngressDeposit {
@@ -28,6 +29,16 @@ module.exports = class IngressDeposit {
     const deposit = new Deposit(value);
 
     this.unitOfWork = await this.unitOfWorkFactory.create();
+
+    if (!value.past) {
+      const ingressCompleted = await this.unitOfWork.exchangeIngressRepo.isComplete({
+        traderID: value.traderID,
+        exchangeID: value.exchangeID,
+      });
+      if (!ingressCompleted) {
+        throw new Error('Exchange ingress not complete');
+      }
+    }
 
     try {
       await this.unitOfWork.transferRepo.addDeposit(deposit);
