@@ -34,9 +34,6 @@ beforeEach(() => {
       isRootAsset: sinon.stub(),
       findMarketQuoteAsset: sinon.stub(),
     },
-    globalMarketService: {
-      marketChange: sinon.stub(),
-    },
     transferRepo: {
       getSuccessfulDeposits: sinon.stub(),
       getSuccessfulWithdrawals: sinon.stub(),
@@ -54,7 +51,6 @@ describe('newTrade', () => {
   beforeEach(() => {
     deps.exchangeService.getPrice.resolves(123);
     deps.exchangeService.getBTCValue.resolves(50);
-    deps.globalMarketService.marketChange.resolves(0.02);
     deps.traderPortfolio.BTCValue.resolves(100);
     deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.01);
     deps.tradeRepo.getDailyTradeChangeMean.resolves(0.03);
@@ -209,24 +205,6 @@ describe('newTrade', () => {
     const trades = await service.newTrade(defaultReq);
 
     expect(trades[0]).toHaveProperty('exit.price', 0.123456);
-  });
-
-  test('globalMarketService.marketChange called with entry time and exit time', async () => {
-    const entryTime = Date.now() - 10000;
-    service.getEntries.resolves([{
-      time: entryTime,
-      quantity: defaultReq.exitQuantity,
-      sourceType: 'order',
-      sourceID: 'entry1',
-      source: {
-        side: 'buy',
-        quoteAsset: 'USDT',
-      },
-    }]);
-
-    await service.newTrade(defaultReq);
-
-    sinon.assert.calledWith(deps.globalMarketService.marketChange, entryTime, defaultReq.exitTime);
   });
 
   it('saves new trade for each entry', async () => {
@@ -724,12 +702,11 @@ describe('score', () => {
     deps.tradeRepo.getDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
   });
 
-  it('returns negative when less than market change', async () => {
+  it('returns negative', async () => {
     const useCase = new TradeService(deps);
     const score = await useCase.score({
       traderID: 'trader123',
-      marketChange: 0.10,
-      tradeChange: 0.05,
+      tradeChange: -0.05,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
       exitTime: Date.now(),
       weight: 0.5,
@@ -738,31 +715,29 @@ describe('score', () => {
     expect(score).toBe(-2.5);
   });
 
-  it('returns positive when more than market change', async () => {
+  it('returns positive', async () => {
     const useCase = new TradeService(deps);
     const score = await useCase.score({
       traderID: 'trader123',
-      marketChange: 0.10,
       tradeChange: 0.25,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
       exitTime: Date.now(),
       weight: 0.5,
     });
 
-    expect(score).toBe(3.729715809318648);
+    expect(score).toBe(4.196158711389381);
   });
 
-  it('returns positive when more than market change and only 6 hrs', async () => {
+  it('returns positive and only 6 hrs', async () => {
     const useCase = new TradeService(deps);
     const score = await useCase.score({
       traderID: 'trader123',
-      marketChange: 0.10,
       tradeChange: 0.25,
       entryTime: Date.now() - (60 * 60 * 6 * 1000),
       exitTime: Date.now(),
       weight: 0.5,
     });
 
-    expect(score).toBe(2.4036774610288023);
+    expect(score).toBe(2.7924812503605785);
   });
 });

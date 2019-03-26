@@ -18,7 +18,6 @@ module.exports = class TradeService {
     tradeRepo,
     traderPortfolio,
     exchangeService,
-    globalMarketService,
     traderScoreService,
     getEntriesLimitPerFetch,
     orderRepo,
@@ -27,7 +26,6 @@ module.exports = class TradeService {
     this.tradeRepo = tradeRepo;
     this.traderPortfolio = traderPortfolio;
     this.exchangeService = exchangeService;
-    this.globalMarketService = globalMarketService;
     this.traderScoreService = traderScoreService;
     this.orderRepo = orderRepo;
     this.transferRepo = transferRepo;
@@ -265,14 +263,12 @@ module.exports = class TradeService {
       exitPrice: exit.price,
     });
 
-    const marketChange = await this.globalMarketService.marketChange(entry.time, exit.time);
     const weight = await weightPromise;
     const tradeChange = (exit.price / entry.price) - 1;
 
     const score = await this.score({
       traderID,
       weight,
-      marketChange,
       tradeChange,
       entryTime: entry.time,
       exitTime: exit.time,
@@ -320,7 +316,6 @@ module.exports = class TradeService {
 
   async score({
     traderID,
-    marketChange,
     tradeChange,
     entryTime,
     exitTime,
@@ -338,16 +333,14 @@ module.exports = class TradeService {
     const tradeDuration = exitTimeNum.minus(entryTime);
     const tradeDurationDays = tradeDuration.dividedBy(60 * 60 * 24 * 1000).toNumber();
 
-    const exclusiveChange = tradeChange - marketChange;
-
     const stdDevPlusMeanChange = (
       (dailyChangeMean * tradeDurationDays)
       + (dailyChangeStdDev * tradeDurationDays)
     );
 
-    let outboundChange = exclusiveChange - stdDevPlusMeanChange;
+    let outboundChange = tradeChange - stdDevPlusMeanChange;
     outboundChange = (outboundChange < 0) ? 0 : outboundChange;
-    const inboundChange = exclusiveChange - outboundChange;
+    const inboundChange = tradeChange - outboundChange;
     let weightedOutboundChange = Math.log2((outboundChange) * 100) / 100;
     weightedOutboundChange = (weightedOutboundChange > 0) ? weightedOutboundChange : 0;
     const score = inboundChange + weightedOutboundChange;
