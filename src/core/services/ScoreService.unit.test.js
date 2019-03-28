@@ -1,5 +1,5 @@
 const sinon = require('sinon');
-const TraderScoreService = require('./TraderScoreService');
+const ScoreService = require('./ScoreService');
 
 let deps;
 let mutex;
@@ -51,7 +51,7 @@ describe('incrementScore', () => {
       .withArgs(sinon.match(endTimeMatcher))
       .resolves([[{ traderID: req.traderID, score: 50 }]]);
 
-    service = new TraderScoreService(deps);
+    service = new ScoreService(deps);
   });
 
   it('calls getTradersScoreHistories with correct params', async () => {
@@ -203,7 +203,7 @@ describe('incrementScores', () => {
       { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
     ];
 
-    service = new TraderScoreService(deps);
+    service = new ScoreService(deps);
 
     sinon.stub(service, 'incrementScore');
   });
@@ -267,7 +267,7 @@ describe('calculateScore', () => {
     };
     deps.tradeRepo.getTrades.callsFake(getNextTrades);
 
-    service = new TraderScoreService(deps);
+    service = new ScoreService(deps);
   });
 
   it('compound increments scores from tradeRepo.getTrades when more than fetch limit', async () => {
@@ -425,7 +425,7 @@ describe('calculateScores', () => {
       { id: 'week', duration: 60 * 60 * 24 * 7 * 1000 },
     ];
 
-    service = new TraderScoreService(deps);
+    service = new ScoreService(deps);
 
     sinon.stub(service, 'calculateScore');
   });

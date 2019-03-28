@@ -1,13 +1,13 @@
 const BigNumber = require('bignumber.js');
 
-module.exports = class TraderPortfolioService {
-  constructor({ traderPortfolioRepo, exchangeService }) {
-    this.traderPortfolioRepo = traderPortfolioRepo;
+module.exports = class PortfolioService {
+  constructor({ portfolioRepo, exchangeService }) {
+    this.portfolioRepo = portfolioRepo;
     this.exchangeService = exchangeService;
   }
 
   async BTCValue({ traderID, time }) {
-    const snapshot = await this.traderPortfolioRepo.portfolioSnapshot({ traderID, time });
+    const snapshot = await this.portfolioRepo.snapshot({ traderID, time });
 
     const sum = (acc, value) => {
       const accNum = new BigNumber(acc);

@@ -1,12 +1,12 @@
 const sinon = require('sinon');
-const TraderPortfolioService = require('./TraderPortfolioService');
+const PortfolioService = require('./PortfolioService');
 
 let deps;
 
 beforeEach(() => {
   deps = {
-    traderPortfolioRepo: {
-      portfolioSnapshot: sinon.stub(),
+    portfolioRepo: {
+      snapshot: sinon.stub(),
     },
     exchangeService: {
       findMarketQuoteAsset: sinon.stub(),
@@ -25,7 +25,7 @@ describe('BTCValue', () => {
       { asset: 'BTC', exchangeID: 'exchange123', quantity: 1.2345 },
       { asset: 'ETH', exchangeID: 'exchange123', quantity: 2.3456 },
     ];
-    deps.traderPortfolioRepo.portfolioSnapshot.resolves(portfolioSnapshotData);
+    deps.portfolioRepo.snapshot.resolves(portfolioSnapshotData);
 
     deps.exchangeService.findMarketQuoteAsset
       .withArgs(sinon.match.has('asset', 'BTC'))
@@ -37,7 +37,7 @@ describe('BTCValue', () => {
 
     deps.exchangeService.getBTCValue.resolves(1);
 
-    service = new TraderPortfolioService(deps);
+    service = new PortfolioService(deps);
     req = { traderID: 'trader123', time: 123 };
   });
 

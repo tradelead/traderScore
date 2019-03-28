@@ -16,17 +16,17 @@ const schema = Joi.object().keys({
 module.exports = class TradeService {
   constructor({
     tradeRepo,
-    traderPortfolio,
+    portfolioService,
     exchangeService,
-    traderScoreService,
+    scoreService,
     getEntriesLimitPerFetch,
     orderRepo,
     transferRepo,
   }) {
     this.tradeRepo = tradeRepo;
-    this.traderPortfolio = traderPortfolio;
+    this.portfolioService = portfolioService;
     this.exchangeService = exchangeService;
-    this.traderScoreService = traderScoreService;
+    this.scoreService = scoreService;
     this.orderRepo = orderRepo;
     this.transferRepo = transferRepo;
     this.getEntriesLimitPerFetch = getEntriesLimitPerFetch;
@@ -86,7 +86,7 @@ module.exports = class TradeService {
     if (value.incrementScores) {
       // eslint-disable-next-line no-restricted-syntax
       for (const trade of trades) {
-        await this.traderScoreService.incrementScores({
+        await this.scoreService.incrementScores({
           traderID: trade.traderID,
           score: trade.score,
           time: trade.exit.time,
@@ -166,7 +166,7 @@ module.exports = class TradeService {
 
       if ((depositsLeft === 0 && depositsLeftOld !== 0) || firstRun) {
         type = 'deposit';
-        const additionalItems = await this.transferRepo.getSuccessfulDeposits({
+        const additionalItems = await this.transferRepo.findDeposits({
           traderID,
           exchangeID,
           asset,
@@ -181,7 +181,7 @@ module.exports = class TradeService {
 
       if ((withdrawalsLeft === 0 && withdrawalsLeftOld !== 0) || firstRun) {
         type = 'withdrawal';
-        const additionalItems = await this.transferRepo.getSuccessfulWithdrawals({
+        const additionalItems = await this.transferRepo.findWithdrawals({
           traderID,
           exchangeID,
           asset,
@@ -307,7 +307,7 @@ module.exports = class TradeService {
       price: exitPrice,
     });
 
-    const portfolioBTC = await this.traderPortfolio.BTCValue({ traderID, time: exitTime });
+    const portfolioBTC = await this.portfolioService.BTCValue({ traderID, time: exitTime });
     const tradeBTCValue = await tradeBTCValueProm;
     const tradeBTCValueSafe = new BigNumber(tradeBTCValue);
 

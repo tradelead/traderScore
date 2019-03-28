@@ -2,7 +2,7 @@ function compoundScore(current, add) {
   return current * ((add / 100) + 1);
 }
 
-module.exports = class TraderScoreService {
+module.exports = class ScoreService {
   constructor({
     traderScorePeriodConfig,
     traderScoreRepo,

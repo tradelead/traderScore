@@ -72,7 +72,7 @@ beforeEach(() => {
     exchangeIngressRepo: {
       markComplete: sinon.stub(),
     },
-    traderScoreService: {
+    scoreService: {
       calculateScores: sinon.stub(),
     },
   };
@@ -169,6 +169,7 @@ describe('exchangeService.getFilledOrders', () => {
     deps.orderRepo.find
       .withArgs({
         traderID: defaultReq.traderID,
+        exchangeID: defaultReq.exchangeID,
         sort: 'desc',
         limit: 1,
       })
@@ -276,6 +277,7 @@ describe('exchangeService.getSuccessfulDeposits', () => {
     deps.transferRepo.findDeposits
       .withArgs({
         traderID: defaultReq.traderID,
+        exchangeID: defaultReq.exchangeID,
         sort: 'desc',
         limit: 1,
       })
@@ -398,6 +400,7 @@ describe('exchangeService.getSuccessfulWithdrawals', () => {
     deps.transferRepo.findWithdrawals
       .withArgs({
         traderID: defaultReq.traderID,
+        exchangeID: defaultReq.exchangeID,
         sort: 'desc',
         limit: 1,
       })
@@ -563,7 +566,7 @@ test('calculates trader scores', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.traderScoreService.calculateScores, defaultReq.traderID);
+  sinon.assert.calledWith(deps.scoreService.calculateScores, defaultReq.traderID);
 });
 
 test('calculate trader scores if trader has no other exchanges', async () => {
@@ -572,11 +575,11 @@ test('calculate trader scores if trader has no other exchanges', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.traderScoreService.calculateScores, defaultReq.traderID);
+  sinon.assert.calledWith(deps.scoreService.calculateScores, defaultReq.traderID);
 });
 
-test('rejects if traderScoreService.calculateScores errors', async () => {
-  deps.traderScoreService.calculateScores.rejects();
+test('rejects if scoreService.calculateScores errors', async () => {
+  deps.scoreService.calculateScores.rejects();
 
   const useCase = new IngressTraderExchange(deps);
 

@@ -21,10 +21,10 @@ beforeEach(() => {
       getDailyTradeChangeStdDeviation: sinon.stub(),
       getDailyTradeChangeMean: sinon.stub(),
     },
-    traderScoreService: {
+    scoreService: {
       incrementScores: sinon.stub(),
     },
-    traderPortfolio: {
+    portfolioService: {
       BTCValue: sinon.stub(),
     },
     exchangeService: {
@@ -35,8 +35,8 @@ beforeEach(() => {
       findMarketQuoteAsset: sinon.stub(),
     },
     transferRepo: {
-      getSuccessfulDeposits: sinon.stub(),
-      getSuccessfulWithdrawals: sinon.stub(),
+      findDeposits: sinon.stub(),
+      findWithdrawals: sinon.stub(),
     },
     orderRepo: {
       getFilledOrders: sinon.stub(),
@@ -51,7 +51,7 @@ describe('newTrade', () => {
   beforeEach(() => {
     deps.exchangeService.getPrice.resolves(123);
     deps.exchangeService.getBTCValue.resolves(50);
-    deps.traderPortfolio.BTCValue.resolves(100);
+    deps.portfolioService.BTCValue.resolves(100);
     deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.01);
     deps.tradeRepo.getDailyTradeChangeMean.resolves(0.03);
 
@@ -213,34 +213,34 @@ describe('newTrade', () => {
     sinon.assert.callCount(deps.tradeRepo.addTrade, 2);
   });
 
-  it('calls traderScoreService.incrementScores for each trade', async () => {
+  it('calls scoreService.incrementScores for each trade', async () => {
     const trades = await service.newTrade(defaultReq);
 
     trades.forEach((trade) => {
       const { traderID, score } = trade;
       const { time } = trade.exit;
       const expectedArgs = { traderID, score, time };
-      sinon.assert.calledWith(deps.traderScoreService.incrementScores, expectedArgs);
+      sinon.assert.calledWith(deps.scoreService.incrementScores, expectedArgs);
     });
   });
 
-  it('doesn\'t call traderScoreService.incrementScores for each trade', async () => {
+  it('doesn\'t call scoreService.incrementScores for each trade', async () => {
     const req = Object.assign({}, defaultReq);
     req.incrementScores = false;
     await service.newTrade(req);
 
-    sinon.assert.notCalled(deps.traderScoreService.incrementScores);
+    sinon.assert.notCalled(deps.scoreService.incrementScores);
   });
 
-  it('calls traderScoreService.incrementScores for each trade synchronously', async () => {
-    deps.traderScoreService.incrementScores.onFirstCall().callsFake(() => new Promise(
+  it('calls scoreService.incrementScores for each trade synchronously', async () => {
+    deps.scoreService.incrementScores.onFirstCall().callsFake(() => new Promise(
       (resolve, reject) => setTimeout(reject, 20),
     ));
 
     // eslint-disable-next-line
     try { await service.newTrade(defaultReq); } catch (e) {}
 
-    sinon.assert.callCount(deps.traderScoreService.incrementScores, 1);
+    sinon.assert.callCount(deps.scoreService.incrementScores, 1);
   });
 
   describe('data validation', () => {
@@ -372,7 +372,7 @@ describe('getEntries', () => {
       return [deposit];
     };
 
-    deps.transferRepo.getSuccessfulDeposits.callsFake(async () => nextDeposit());
+    deps.transferRepo.findDeposits.callsFake(async () => nextDeposit());
 
     withdrawals = [
       Object.assign({}, defaultTransfer, { sourceID: '4', time: 4 }),
@@ -388,7 +388,7 @@ describe('getEntries', () => {
       return [withdrawal];
     };
 
-    deps.transferRepo.getSuccessfulWithdrawals.callsFake(async () => nextWithdrawal());
+    deps.transferRepo.findWithdrawals.callsFake(async () => nextWithdrawal());
 
     service = new TradeService(deps);
   });
@@ -433,83 +433,83 @@ describe('getEntries', () => {
     });
   });
 
-  describe('calls getSuccessfulDeposits', () => {
+  describe('calls findDeposits', () => {
     beforeEach(async () => {
       await service.getEntries(req);
     });
 
     it('calls with traderID', async () => {
       const { traderID } = req;
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ traderID });
+      deps.transferRepo.findDeposits.calledWithMatch({ traderID });
     });
 
     it('calls with exchangeID', async () => {
       const { exchangeID } = req;
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ exchangeID });
+      deps.transferRepo.findDeposits.calledWithMatch({ exchangeID });
     });
 
     it('calls with asset', async () => {
       const { asset } = req;
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ asset });
+      deps.transferRepo.findDeposits.calledWithMatch({ asset });
     });
 
     it('calls with exitTime', async () => {
       const endTime = req.exitTime;
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ endTime });
+      deps.transferRepo.findDeposits.calledWithMatch({ endTime });
     });
 
     it('calls with sort desc', async () => {
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ sort: 'desc' });
+      deps.transferRepo.findDeposits.calledWithMatch({ sort: 'desc' });
     });
 
     test('first call has startTime of zero', async () => {
       const startTime = 0;
-      deps.transferRepo.getSuccessfulDeposits.calledWithMatch({ startTime });
+      deps.transferRepo.findDeposits.calledWithMatch({ startTime });
     });
 
     it('calls startTime with time of last item', async () => {
       const { startTime } = orders[1];
-      deps.transferRepo.getSuccessfulDeposits.secondCall.calledWithMatch({ startTime });
+      deps.transferRepo.findDeposits.secondCall.calledWithMatch({ startTime });
     });
   });
 
-  describe('calls getSuccessfulWithdrawals', () => {
+  describe('calls findWithdrawals', () => {
     beforeEach(async () => {
       await service.getEntries(req);
     });
 
     it('calls with traderID', async () => {
       const { traderID } = req;
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ traderID });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ traderID });
     });
 
     it('calls with exchangeID', async () => {
       const { exchangeID } = req;
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ exchangeID });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ exchangeID });
     });
 
     it('calls with asset', async () => {
       const { asset } = req;
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ asset });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ asset });
     });
 
     it('calls with exitTime', async () => {
       const endTime = req.exitTime;
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ endTime });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ endTime });
     });
 
     it('calls with sort desc', async () => {
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ sort: 'desc' });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ sort: 'desc' });
     });
 
     test('first call has startTime of zero', async () => {
       const startTime = 0;
-      deps.transferRepo.getSuccessfulWithdrawals.calledWithMatch({ startTime });
+      deps.transferRepo.findWithdrawals.calledWithMatch({ startTime });
     });
 
     it('calls startTime with time of last item', async () => {
       const { startTime } = orders[1];
-      deps.transferRepo.getSuccessfulWithdrawals.secondCall.calledWithMatch({ startTime });
+      deps.transferRepo.findWithdrawals.secondCall.calledWithMatch({ startTime });
     });
   });
 
@@ -660,7 +660,7 @@ describe('getEntryQuoteAsset', () => {
 
 describe('tradeWeight', () => {
   beforeEach(() => {
-    deps.traderPortfolio.BTCValue.withArgs({
+    deps.portfolioService.BTCValue.withArgs({
       traderID: defaultReq.traderID,
       time: defaultReq.exitTime,
     }).resolves(100);
@@ -689,8 +689,8 @@ describe('tradeWeight', () => {
 
     deps.exchangeService.getBTCValue.resetBehavior();
     deps.exchangeService.getBTCValue.resolves(0.01);
-    deps.traderPortfolio.BTCValue.resetBehavior();
-    deps.traderPortfolio.BTCValue.resolves(0.1);
+    deps.portfolioService.BTCValue.resetBehavior();
+    deps.portfolioService.BTCValue.resolves(0.1);
 
     return expect(useCase.tradeWeight(req)).resolves.toBe(0.1);
   });

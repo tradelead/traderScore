@@ -15,7 +15,7 @@ module.exports = class IngressTraderExchange {
     transferRepo,
     exchangeActivityLimitPerFetch,
     exchangeIngressRepo,
-    traderScoreService,
+    scoreService,
   }) {
     this.ingressDeposit = ingressDeposit;
     this.ingressFilledOrder = ingressFilledOrder;
@@ -25,7 +25,7 @@ module.exports = class IngressTraderExchange {
     this.transferRepo = transferRepo;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.exchangeIngressRepo = exchangeIngressRepo;
-    this.traderScoreService = traderScoreService;
+    this.scoreService = scoreService;
     this.descSort = (a, b) => b.time - a.time;
   }
 
@@ -41,13 +41,28 @@ module.exports = class IngressTraderExchange {
 
     const { traderID, exchangeID } = value;
 
-    const lastOrders = await this.orderRepo.find({ traderID, limit: 1, sort: 'desc' });
+    const lastOrders = await this.orderRepo.find({
+      traderID,
+      exchangeID,
+      limit: 1,
+      sort: 'desc',
+    });
     const ordersStartTime = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
 
-    const lastDeposits = await this.transferRepo.findDeposits({ traderID, limit: 1, sort: 'desc' });
+    const lastDeposits = await this.transferRepo.findDeposits({
+      traderID,
+      exchangeID,
+      limit: 1,
+      sort: 'desc',
+    });
     const depositsStartTime = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
 
-    const lastWithdraws = await this.transferRepo.findWithdrawals({ traderID, limit: 1, sort: 'desc' });
+    const lastWithdraws = await this.transferRepo.findWithdrawals({
+      traderID,
+      exchangeID,
+      limit: 1,
+      sort: 'desc',
+    });
     const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
     const withdrawalsStartTime = (hasWithdraws ? lastWithdraws[0].time : 0);
 
@@ -64,7 +79,7 @@ module.exports = class IngressTraderExchange {
       exchangeID,
     });
 
-    await this.traderScoreService.calculateScores(traderID);
+    await this.scoreService.calculateScores(traderID);
 
     await this.exchangeIngressRepo.markComplete({ traderID, exchangeID });
 
