@@ -1,4 +1,4 @@
-const KnexUnitOfWork = require('./KnexUnitOfWork');
+const KnexUnitOfWork = require('./UnitOfWork');
 
 module.exports = class KnexUnitOfWorkFactory {
   constructor(knex, serviceFactories) {
