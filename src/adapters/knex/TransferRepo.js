@@ -1,4 +1,5 @@
 const VError = require('verror');
+const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class TransferRepo {
   constructor({ knexConn, portfolioRepoFactory }) {
@@ -14,6 +15,7 @@ module.exports = class TransferRepo {
     }
 
     const obj = Object.assign({}, deposit, { type: 'deposit' });
+    obj.time = msToMySQLFormat(obj.time);
     const insertProm = this.knexConn.insert(obj, ['ID']).into('transfers');
 
     const incrProm = this.portfolioRepo.incr({
