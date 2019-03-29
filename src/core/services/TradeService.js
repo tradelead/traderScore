@@ -108,16 +108,14 @@ module.exports = class TradeService {
     let firstRun = true;
     let ordersLeft = 0;
     let depositsLeft = 0;
-    let withdrawalsLeft = 0;
     let entriesAcc = [];
     const entriesQueue = [];
 
-    const itemsLeft = () => ordersLeft + depositsLeft + withdrawalsLeft > 0;
+    const itemsLeft = () => ordersLeft + depositsLeft > 0;
 
     do {
       const ordersLeftOld = ordersLeft;
       const depositsLeftOld = depositsLeft;
-      const withdrawalsLeftOld = withdrawalsLeft;
       let item;
 
       if (entriesQueue.length > 0) {
@@ -131,8 +129,6 @@ module.exports = class TradeService {
           ordersLeft -= 1;
         } else if (item.type === 'deposit') {
           depositsLeft -= 1;
-        } else if (item.type === 'withdrawal') {
-          withdrawalsLeft -= 1;
         }
       }
 
@@ -159,6 +155,7 @@ module.exports = class TradeService {
           startTime,
           endTime,
           sort: 'desc',
+          unused: true,
         });
         ordersLeft = (additionalItems ? additionalItems.length : 0);
         addToQueue(additionalItems);
@@ -174,23 +171,9 @@ module.exports = class TradeService {
           startTime,
           endTime,
           sort: 'desc',
+          unused: true,
         });
         depositsLeft = (additionalItems ? additionalItems.length : 0);
-        addToQueue(additionalItems);
-      }
-
-      if ((withdrawalsLeft === 0 && withdrawalsLeftOld !== 0) || firstRun) {
-        type = 'withdrawal';
-        const additionalItems = await this.transferRepo.findWithdrawals({
-          traderID,
-          exchangeID,
-          asset,
-          limit,
-          startTime,
-          endTime,
-          sort: 'desc',
-        });
-        withdrawalsLeft = (additionalItems ? additionalItems.length : 0);
         addToQueue(additionalItems);
       }
 
@@ -228,7 +211,6 @@ module.exports = class TradeService {
 
     if (
       (entry.sourceType === 'order' && entry.source.side === 'sell')
-      || entry.sourceType === 'withdrawal'
       || entry.sourceType === 'deposit'
     ) {
       return this.exchangeService.findMarketQuoteAsset({
@@ -323,11 +305,11 @@ module.exports = class TradeService {
   }) {
     // Standard deviation of all the trader's exclusive trade change per day.
     // Exclusive change is the trade change minus the market change for that period.
-    const dailyChangeStdDevProm = this.tradeRepo.getDailyTradeChangeStdDeviation(traderID);
-    const dailyChangeMeanProm = this.tradeRepo.getDailyTradeChangeMean(traderID);
+    const stdDevProm = this.tradeRepo.getRecentDailyTradeChangeStdDev(traderID, exitTime);
+    const meanProm = this.tradeRepo.getRecentDailyTradeChangeMean(traderID, exitTime);
 
-    const dailyChangeStdDev = await dailyChangeStdDevProm;
-    const dailyChangeMean = await dailyChangeMeanProm;
+    const dailyChangeStdDev = await stdDevProm;
+    const dailyChangeMean = await meanProm;
 
     const exitTimeNum = new BigNumber(exitTime);
     const tradeDuration = exitTimeNum.minus(entryTime);

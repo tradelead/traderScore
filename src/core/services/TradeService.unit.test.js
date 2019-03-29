@@ -18,8 +18,8 @@ beforeEach(() => {
   deps = {
     tradeRepo: {
       addTrade: sinon.stub(),
-      getDailyTradeChangeStdDeviation: sinon.stub(),
-      getDailyTradeChangeMean: sinon.stub(),
+      getRecentDailyTradeChangeStdDev: sinon.stub(),
+      getRecentDailyTradeChangeMean: sinon.stub(),
     },
     scoreService: {
       incrementScores: sinon.stub(),
@@ -52,8 +52,8 @@ describe('newTrade', () => {
     deps.exchangeService.getPrice.resolves(123);
     deps.exchangeService.getBTCValue.resolves(50);
     deps.portfolioService.BTCValue.resolves(100);
-    deps.tradeRepo.getDailyTradeChangeStdDeviation.resolves(0.01);
-    deps.tradeRepo.getDailyTradeChangeMean.resolves(0.03);
+    deps.tradeRepo.getRecentDailyTradeChangeStdDev.resolves(0.01);
+    deps.tradeRepo.getRecentDailyTradeChangeMean.resolves(0.03);
 
     service = new TradeService(deps);
 
@@ -312,7 +312,6 @@ describe('getEntries', () => {
   let req;
   let orders;
   let deposits;
-  let withdrawals;
 
   beforeEach(() => {
     deps.getEntriesLimitPerFetch = 1;
@@ -362,6 +361,9 @@ describe('getEntries', () => {
     };
     deposits = [
       Object.assign({}, defaultTransfer, { sourceID: '1', time: 1 }),
+      Object.assign({}, defaultTransfer, { sourceID: '4', time: 4 }),
+      Object.assign({}, defaultTransfer, { sourceID: '5', time: 5 }),
+      Object.assign({}, defaultTransfer, { sourceID: '6', time: 6 }),
     ];
 
     let depositIndex = 0;
@@ -374,22 +376,6 @@ describe('getEntries', () => {
 
     deps.transferRepo.findDeposits.callsFake(async () => nextDeposit());
 
-    withdrawals = [
-      Object.assign({}, defaultTransfer, { sourceID: '4', time: 4 }),
-      Object.assign({}, defaultTransfer, { sourceID: '5', time: 5 }),
-      Object.assign({}, defaultTransfer, { sourceID: '6', time: 6 }),
-    ];
-
-    let withdrawalIndex = 0;
-    const nextWithdrawal = () => {
-      if (withdrawals.length - 1 < withdrawalIndex) { return null; }
-      const withdrawal = withdrawals[withdrawalIndex];
-      withdrawalIndex += 1;
-      return [withdrawal];
-    };
-
-    deps.transferRepo.findWithdrawals.callsFake(async () => nextWithdrawal());
-
     service = new TradeService(deps);
   });
 
@@ -400,36 +386,41 @@ describe('getEntries', () => {
 
     it('calls with traderID', async () => {
       const { traderID } = req;
-      deps.orderRepo.getFilledOrders.calledWithMatch({ traderID });
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { traderID });
     });
 
     it('calls with exchangeID', async () => {
       const { exchangeID } = req;
-      deps.orderRepo.getFilledOrders.calledWithMatch({ exchangeID });
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { exchangeID });
     });
 
     it('calls with asset', async () => {
       const { asset } = req;
-      deps.orderRepo.getFilledOrders.calledWithMatch({ asset });
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { asset });
     });
 
     it('calls with exitTime', async () => {
       const endTime = req.exitTime;
-      deps.orderRepo.getFilledOrders.calledWithMatch({ endTime });
+      expect(deps.orderRepo.getFilledOrders.calledWithMatch({ endTime })).toBe(true);
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { sort: 'desc' });
     });
 
     it('calls with sort desc', async () => {
-      deps.orderRepo.getFilledOrders.calledWithMatch({ sort: 'desc' });
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { sort: 'desc' });
+    });
+
+    it('calls with unused', async () => {
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { unused: true });
     });
 
     test('first call has startTime of zero', async () => {
       const startTime = 0;
-      deps.orderRepo.getFilledOrders.calledWithMatch({ startTime });
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { startTime });
     });
 
     it('calls startTime with time of last item', async () => {
-      const { startTime } = orders[1];
-      deps.orderRepo.getFilledOrders.secondCall.calledWithMatch({ startTime });
+      const { time } = orders[0];
+      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders.secondCall, { startTime: time });
     });
   });
 
@@ -441,79 +432,44 @@ describe('getEntries', () => {
     it('calls with traderID', async () => {
       const { traderID } = req;
       deps.transferRepo.findDeposits.calledWithMatch({ traderID });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { traderID });
     });
 
     it('calls with exchangeID', async () => {
       const { exchangeID } = req;
-      deps.transferRepo.findDeposits.calledWithMatch({ exchangeID });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { exchangeID });
     });
 
     it('calls with asset', async () => {
       const { asset } = req;
-      deps.transferRepo.findDeposits.calledWithMatch({ asset });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { asset });
     });
 
     it('calls with exitTime', async () => {
       const endTime = req.exitTime;
-      deps.transferRepo.findDeposits.calledWithMatch({ endTime });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { endTime });
     });
 
     it('calls with sort desc', async () => {
-      deps.transferRepo.findDeposits.calledWithMatch({ sort: 'desc' });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { sort: 'desc' });
+    });
+
+    it('calls with unused', async () => {
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { unused: true });
     });
 
     test('first call has startTime of zero', async () => {
       const startTime = 0;
-      deps.transferRepo.findDeposits.calledWithMatch({ startTime });
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { startTime });
     });
 
     it('calls startTime with time of last item', async () => {
-      const { startTime } = orders[1];
-      deps.transferRepo.findDeposits.secondCall.calledWithMatch({ startTime });
+      const { time } = deposits[0];
+      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits.secondCall, { startTime: time });
     });
   });
 
-  describe('calls findWithdrawals', () => {
-    beforeEach(async () => {
-      await service.getEntries(req);
-    });
-
-    it('calls with traderID', async () => {
-      const { traderID } = req;
-      deps.transferRepo.findWithdrawals.calledWithMatch({ traderID });
-    });
-
-    it('calls with exchangeID', async () => {
-      const { exchangeID } = req;
-      deps.transferRepo.findWithdrawals.calledWithMatch({ exchangeID });
-    });
-
-    it('calls with asset', async () => {
-      const { asset } = req;
-      deps.transferRepo.findWithdrawals.calledWithMatch({ asset });
-    });
-
-    it('calls with exitTime', async () => {
-      const endTime = req.exitTime;
-      deps.transferRepo.findWithdrawals.calledWithMatch({ endTime });
-    });
-
-    it('calls with sort desc', async () => {
-      deps.transferRepo.findWithdrawals.calledWithMatch({ sort: 'desc' });
-    });
-
-    test('first call has startTime of zero', async () => {
-      const startTime = 0;
-      deps.transferRepo.findWithdrawals.calledWithMatch({ startTime });
-    });
-
-    it('calls startTime with time of last item', async () => {
-      const { startTime } = orders[1];
-      deps.transferRepo.findWithdrawals.secondCall.calledWithMatch({ startTime });
-    });
-  });
-
-  it('returns entries (orders, deposits, withdrawals) in order when multi-fetch needed', async () => {
+  it('returns entries (orders, deposits) in order when multi-fetch needed', async () => {
     const entries = await service.getEntries(req);
 
     const entrySourceIDs = entries.map(entry => entry.sourceID);
@@ -610,16 +566,6 @@ describe('getEntryQuoteAsset', () => {
     expect(quoteAsset).toBe('ABC');
   });
 
-  it('equals exchangeService.findMarketQuoteAsset if entry is withdrawal', async () => {
-    entry = {
-      sourceType: 'withdrawal',
-    };
-
-    const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
-
-    expect(quoteAsset).toBe('ABC');
-  });
-
   it('equals exchangeService.findMarketQuoteAsset if entry is deposit', async () => {
     entry = {
       sourceType: 'deposit',
@@ -640,7 +586,7 @@ describe('getEntryQuoteAsset', () => {
 
   describe('calls exchangeService.findMarketQuoteAsset', () => {
     beforeEach(async () => {
-      entry = { sourceType: 'withdrawal' };
+      entry = { sourceType: 'deposit' };
       await service.getEntryQuoteAsset(entry, exchangeID, asset);
     });
 
@@ -698,8 +644,8 @@ describe('tradeWeight', () => {
 
 describe('score', () => {
   beforeEach(() => {
-    deps.tradeRepo.getDailyTradeChangeStdDeviation.withArgs('trader123').resolves(0.01);
-    deps.tradeRepo.getDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
+    deps.tradeRepo.getRecentDailyTradeChangeStdDev.withArgs('trader123').resolves(0.01);
+    deps.tradeRepo.getRecentDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
   });
 
   it('returns negative', async () => {
@@ -739,5 +685,41 @@ describe('score', () => {
     });
 
     expect(score).toBe(2.7924812503605785);
+  });
+
+  it('calls getRecentDailyTradeChangeStdDev with the trader ID & exit time', async () => {
+    const useCase = new TradeService(deps);
+    const req = {
+      traderID: 'trader123',
+      tradeChange: -0.05,
+      entryTime: Date.now() - (60 * 60 * 24 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+    };
+    await useCase.score(req);
+
+    sinon.assert.calledWith(
+      deps.tradeRepo.getRecentDailyTradeChangeStdDev,
+      req.traderID,
+      req.exitTime,
+    );
+  });
+
+  it('calls getRecentDailyTradeChangeMean with the trader ID & exit time', async () => {
+    const useCase = new TradeService(deps);
+    const req = {
+      traderID: 'trader123',
+      tradeChange: -0.05,
+      entryTime: Date.now() - (60 * 60 * 24 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+    };
+    await useCase.score(req);
+
+    sinon.assert.calledWith(
+      deps.tradeRepo.getRecentDailyTradeChangeMean,
+      req.traderID,
+      req.exitTime,
+    );
   });
 });

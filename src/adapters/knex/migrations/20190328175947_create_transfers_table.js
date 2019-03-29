@@ -3,14 +3,16 @@ exports.up = async function (knex) {
   return knex.schema.createTable('transfers', (t) => {
     t.increments('ID').primary().unique();
 
-    t.string('type', 60);
-    t.string('traderID', 60);
-    t.string('sourceID', 60);
-    t.string('exchangeID', 60);
-    t.string('asset', 10);
-    t.timestamp('time', 3);
-    t.decimal('quantity', 65, 8);
-    t.decimal('quantityUsedAsEntry', 65, 8);
+    t.string('type', 60).notNullable();
+    t.string('traderID', 60).notNullable();
+    t.string('sourceID', 60).notNullable();
+    t.string('exchangeID', 60).notNullable();
+    t.string('asset', 10).notNullable();
+    t.timestamp('time', 3).notNullable();
+    t.decimal('quantity', 65, 8).notNullable();
+    t.decimal('quantityUnused', 65, 8).notNullable();
+    t.index(['traderID', 'exchangeID', 'time']);
+    t.unique(['type', 'traderID', 'exchangeID', 'sourceID']);
   });
 };
 

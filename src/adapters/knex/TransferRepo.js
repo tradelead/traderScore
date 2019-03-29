@@ -5,6 +5,7 @@ module.exports = class TransferRepo {
   constructor({ knexConn, portfolioRepoFactory }) {
     this.knexConn = knexConn;
     this.portfolioRepo = portfolioRepoFactory.create(knexConn);
+    this.tableName = 'transfers';
   }
 
   async addDeposit(deposit) {
@@ -16,7 +17,9 @@ module.exports = class TransferRepo {
 
     const obj = Object.assign({}, deposit, { type: 'deposit' });
     obj.time = msToMySQLFormat(obj.time);
-    const insertProm = this.knexConn.insert(obj, ['ID']).into('transfers');
+    obj.quantityUnused = obj.quantity;
+
+    const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
     const incrProm = this.portfolioRepo.incr({
       traderID: deposit.traderID,
@@ -43,7 +46,9 @@ module.exports = class TransferRepo {
     }
 
     const obj = Object.assign({}, withdrawal, { type: 'withdrawal' });
-    const insertProm = this.knexConn.insert(obj, ['ID']).into('transfers');
+    obj.time = msToMySQLFormat(obj.time);
+
+    const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
     const incrProm = this.portfolioRepo.decr({
       traderID: withdrawal.traderID,
@@ -70,8 +75,37 @@ module.exports = class TransferRepo {
     startTime,
     endTime,
     sort,
+    unused,
   }) {
+    const filters = {
+      type: 'deposit',
+      traderID,
+      exchangeID,
+      asset,
+    };
+    // remove undefined
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
+    const query = this.knexConn
+      .select()
+      .from(this.tableName)
+      .where(filters)
+      .orderBy('time', sort)
+      .limit(limit || 10);
+
+    if (startTime > 0) {
+      query.andWhere('time', '>=', msToMySQLFormat(startTime));
+    }
+
+    if (endTime > 0) {
+      query.andWhere('time', '<=', msToMySQLFormat(endTime));
+    }
+
+    if (unused) {
+      query.andWhere('quantityUnused', '>', 0);
+    }
+
+    return query;
   }
 
   async findWithdrawals({
@@ -83,6 +117,30 @@ module.exports = class TransferRepo {
     endTime,
     sort,
   }) {
+    const filters = {
+      type: 'withdrawal',
+      traderID,
+      exchangeID,
+      asset,
+    };
+    // remove undefined
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
+    const query = this.knexConn
+      .select()
+      .from(this.tableName)
+      .where(filters)
+      .orderBy('time', sort)
+      .limit(limit || 10);
+
+    if (startTime > 0) {
+      query.andWhere('time', '>=', msToMySQLFormat(startTime));
+    }
+
+    if (endTime > 0) {
+      query.andWhere('time', '<=', msToMySQLFormat(endTime));
+    }
+
+    return query;
   }
 };
