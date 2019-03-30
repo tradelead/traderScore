@@ -244,6 +244,7 @@ describe('findDeposits', () => {
         asset: 'BTC',
         time: msToMySQLFormat(1000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'deposit',
@@ -253,6 +254,7 @@ describe('findDeposits', () => {
         asset: 'BTC',
         time: msToMySQLFormat(2000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'deposit',
@@ -272,6 +274,7 @@ describe('findDeposits', () => {
         asset: 'BTC',
         time: msToMySQLFormat(4000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'withdrawal',
@@ -281,6 +284,7 @@ describe('findDeposits', () => {
         asset: 'BTC',
         time: msToMySQLFormat(4000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
     ];
 
@@ -384,6 +388,7 @@ describe('findWithdrawals', () => {
         asset: 'BTC',
         time: msToMySQLFormat(1000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'withdrawal',
@@ -393,6 +398,7 @@ describe('findWithdrawals', () => {
         asset: 'BTC',
         time: msToMySQLFormat(2000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'withdrawal',
@@ -402,6 +408,7 @@ describe('findWithdrawals', () => {
         asset: 'ETH',
         time: msToMySQLFormat(3000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'withdrawal',
@@ -411,6 +418,7 @@ describe('findWithdrawals', () => {
         asset: 'BTC',
         time: msToMySQLFormat(4000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
       {
         type: 'deposit',
@@ -420,6 +428,7 @@ describe('findWithdrawals', () => {
         asset: 'BTC',
         time: msToMySQLFormat(4000),
         quantity: 123.12345678,
+        quantityUnused: 0,
       },
     ];
 

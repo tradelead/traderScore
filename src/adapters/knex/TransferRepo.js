@@ -46,6 +46,7 @@ module.exports = class TransferRepo {
     }
 
     const obj = Object.assign({}, withdrawal, { type: 'withdrawal' });
+    obj.quantityUnused = 0;
     obj.time = msToMySQLFormat(obj.time);
 
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);

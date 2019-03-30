@@ -11,8 +11,11 @@ exports.up = async function (knex) {
     t.timestamp('time', 3).notNullable();
     t.decimal('quantity', 65, 8).notNullable();
     t.decimal('quantityUnused', 65, 8).notNullable();
-    t.index(['traderID', 'exchangeID', 'time']);
+
     t.unique(['type', 'traderID', 'exchangeID', 'sourceID']);
+
+    t.index(['traderID', 'exchangeID', 'time']);
+    t.index(['traderID', 'exchangeID', 'asset', 'quantityUnused', 'time']);
   });
 };
 
