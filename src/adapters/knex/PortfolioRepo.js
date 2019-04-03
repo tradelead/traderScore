@@ -120,7 +120,7 @@ module.exports = class PortfolioRepo {
       quantity: newQty,
       time: msToMySQLFormat(time),
     };
-    console.log(lastQty, portfolioObj);
+
     const [newID] = await this.knexConn.insert(portfolioObj, ['ID']).into(this.tableName);
 
     const futureItems = await this.knexConn
@@ -142,5 +142,44 @@ module.exports = class PortfolioRepo {
     });
 
     await Promise.all(updateProms);
+  }
+
+  async snapshot({
+    traderID,
+    time,
+  }) {
+    const assets = await this.knexConn
+      .select('ID', 'traderID', 'exchangeID', 'asset')
+      .from(this.assetsTableName)
+      .where({ traderID });
+
+    if (assets.length === 0) {
+      return [];
+    }
+
+    let assetQuantitiesSQLs = await assets.map(asset => this.knexConn
+      .select('traderExchangeAssetID', 'quantity')
+      .from(this.tableName)
+      .where({ traderExchangeAssetID: asset.ID })
+      .andWhere('time', '<=', msToMySQLFormat(time))
+      .orderBy('time', 'desc')
+      .limit(1)
+      .toString());
+
+    assetQuantitiesSQLs = assetQuantitiesSQLs.map(assetSQL => `(${assetSQL})`);
+    const assetQuantitiesSQL = assetQuantitiesSQLs.join(' union all ');
+
+    let [assetQuantities] = await this.knexConn.raw(assetQuantitiesSQL);
+
+    assetQuantities = assetQuantities.reduce((acc, assetQuantity) => {
+      const ID = assetQuantity.traderExchangeAssetID;
+      acc[ID] = assetQuantity.quantity;
+      return acc;
+    }, {});
+
+    return assets.map((asset) => {
+      const quantity = assetQuantities[asset.ID];
+      return Object.assign({}, asset, { quantity });
+    });
   }
 };

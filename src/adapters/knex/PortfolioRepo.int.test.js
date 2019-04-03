@@ -222,7 +222,6 @@ describe('decr method', () => {
     await portfolioRepo.decr(req);
 
     const savedRows = await knex.select().from(tableName).orderBy('time', 'asc').limit(4);
-    console.log(savedRows);
 
     expect(new Date(savedRows[0].time).getTime()).toBe(defaultReq.time - 100000);
     expect(savedRows[0].quantity).toBe(13.345);
@@ -235,5 +234,88 @@ describe('decr method', () => {
 
     expect(new Date(savedRows[3].time).getTime()).toBe(defaultReq.time + 200000);
     expect(savedRows[3].quantity).toBe(21);
+  });
+});
+
+describe('snapshot', () => {
+  const defaultReq = {
+    traderID: 'trader1',
+    time: 1550000000000,
+  };
+
+  let req;
+  let assetIDs;
+
+  beforeEach(async () => {
+    await knex(tableName).truncate();
+    await knex(assetTableName).truncate();
+
+    req = Object.assign({}, defaultReq);
+
+    assetIDs = [];
+    let assetID;
+
+    [assetID] = await knex(assetTableName).insert({
+      traderID: req.traderID,
+      exchangeID: 'binance',
+      asset: 'BTC',
+    }, ['ID']);
+    assetIDs.push(assetID);
+
+    await knex(tableName).insert([
+      {
+        traderExchangeAssetID: assetID,
+        quantity: 3.345,
+        time: msToMySQLFormat(req.time - 100000),
+      },
+      {
+        traderExchangeAssetID: assetID,
+        quantity: 5.345,
+        time: msToMySQLFormat(req.time - 10000),
+      },
+    ]);
+
+    [assetID] = await knex(assetTableName).insert({
+      traderID: req.traderID,
+      exchangeID: 'bittrex',
+      asset: 'ETH',
+    }, ['ID']);
+    assetIDs.push(assetID);
+
+    await knex(tableName).insert([
+      {
+        traderExchangeAssetID: assetID,
+        quantity: 13.345,
+        time: msToMySQLFormat(req.time - 100000),
+      },
+      {
+        traderExchangeAssetID: assetID,
+        quantity: 15.345,
+        time: msToMySQLFormat(req.time - 10000),
+      },
+    ]);
+  });
+
+  it('returns snapshot', async () => {
+    const snapshot = await portfolioRepo.snapshot(req);
+
+    const expectedSnapshot = [
+      {
+        ID: assetIDs[0],
+        traderID: req.traderID,
+        exchangeID: 'binance',
+        asset: 'BTC',
+        quantity: 5.345,
+      },
+      {
+        ID: assetIDs[1],
+        traderID: req.traderID,
+        exchangeID: 'bittrex',
+        asset: 'ETH',
+        quantity: 15.345,
+      },
+    ];
+
+    expect(snapshot).toEqual(expectedSnapshot);
   });
 });
