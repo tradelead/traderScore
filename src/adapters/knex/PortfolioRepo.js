@@ -15,67 +15,17 @@ module.exports = class PortfolioRepo {
     quantity,
     time,
   }) {
-    const [assetObj] = await this.knexConn
-      .select('ID')
-      .from(this.assetsTableName)
-      .where({
-        traderID,
-        exchangeID,
-        asset,
-      });
-
-    let traderExchangeAssetID;
-
-    if (assetObj) {
-      traderExchangeAssetID = assetObj.ID;
-    }
-
-    if (!traderExchangeAssetID) {
-      [traderExchangeAssetID] = await this.knexConn.insert({
-        traderID,
-        exchangeID,
-        asset,
-      }, ['ID']).into(this.assetsTableName);
-    }
-
-    const [lastItem] = await this.knexConn
-      .select('quantity')
-      .from(this.tableName)
-      .where({ traderExchangeAssetID })
-      .andWhere('time', '<=', msToMySQLFormat(time))
-      .orderBy('time', 'desc')
-      .limit(1);
-
-    const lastQty = (lastItem && lastItem.quantity ? lastItem.quantity : 0);
-    const qtyNum = new BigNumber(quantity);
-    const newQty = qtyNum.plus(lastQty).toNumber();
-
-    const portfolioObj = {
-      traderExchangeAssetID,
-      quantity: newQty,
-      time: msToMySQLFormat(time),
-    };
-    const [newID] = await this.knexConn.insert(portfolioObj, ['ID']).into(this.tableName);
-
-    const futureItems = await this.knexConn
-      .select('ID', 'quantity')
-      .from(this.tableName)
-      .where({ traderExchangeAssetID })
-      .andWhere('time', '>=', msToMySQLFormat(time))
-      .andWhereNot({ ID: newID })
-      .orderBy('time', 'desc');
-
-    const updateProms = futureItems.map((item) => {
-      const oldQty = new BigNumber(item.quantity);
-      const qty = oldQty.plus(quantity).toNumber();
-
-      return this.knexConn
-        .into(this.tableName)
-        .where('ID', item.ID)
-        .update('quantity', qty);
+    const traderExchangeAssetID = await this.createAssetIfNotExists({
+      traderID,
+      exchangeID,
+      asset,
     });
 
-    await Promise.all(updateProms);
+    await this.insertItem({ traderExchangeAssetID, time }, (item) => {
+      const lastQty = (item && item.quantity ? item.quantity : 0);
+      const qtyNum = new BigNumber(quantity);
+      return qtyNum.plus(lastQty).toNumber();
+    });
   }
 
   async decr({
@@ -85,14 +35,7 @@ module.exports = class PortfolioRepo {
     quantity,
     time,
   }) {
-    const [assetObj] = await this.knexConn
-      .select('ID')
-      .from(this.assetsTableName)
-      .where({
-        traderID,
-        exchangeID,
-        asset,
-      });
+    const assetObj = await this.getAsset({ traderID, exchangeID, asset });
 
     if (!assetObj) {
       throw new Error('cannot decr: trader doesn\'t own asset');
@@ -100,63 +43,44 @@ module.exports = class PortfolioRepo {
 
     const traderExchangeAssetID = assetObj.ID;
 
-    const [lastItem] = await this.knexConn
-      .select('quantity')
-      .from(this.tableName)
-      .where({ traderExchangeAssetID })
-      .andWhere('time', '<=', msToMySQLFormat(time))
-      .orderBy('time', 'desc')
-      .limit(1);
+    await this.insertItem({ traderExchangeAssetID, time }, (item) => {
+      const lastQty = (item && item.quantity ? item.quantity : 0);
+      const lastQtyNum = new BigNumber(lastQty);
+      const newQty = lastQtyNum.minus(quantity).toNumber();
+      if (newQty < 0) {
+        throw new Error('cannot decr: insufficient asset quantity');
+      }
 
-    const lastQty = (lastItem && lastItem.quantity ? lastItem.quantity : 0);
-    const lastQtyNum = new BigNumber(lastQty);
-    const newQty = lastQtyNum.minus(quantity).toNumber();
-    if (newQty < 0) {
-      throw new Error('cannot decr: insufficient asset quantity');
-    }
-
-    const portfolioObj = {
-      traderExchangeAssetID,
-      quantity: newQty,
-      time: msToMySQLFormat(time),
-    };
-
-    const [newID] = await this.knexConn.insert(portfolioObj, ['ID']).into(this.tableName);
-
-    const futureItems = await this.knexConn
-      .select('ID', 'quantity')
-      .from(this.tableName)
-      .where({ traderExchangeAssetID })
-      .andWhere('time', '>=', msToMySQLFormat(time))
-      .andWhereNot({ ID: newID })
-      .orderBy('time', 'desc');
-
-    const updateProms = futureItems.map((item) => {
-      const oldQty = new BigNumber(item.quantity);
-      const qty = oldQty.minus(quantity).toNumber();
-
-      return this.knexConn
-        .into(this.tableName)
-        .where('ID', item.ID)
-        .update('quantity', qty);
+      return newQty;
     });
-
-    await Promise.all(updateProms);
   }
 
   async snapshot({
     traderID,
     time,
   }) {
-    const assets = await this.knexConn
-      .select('ID', 'traderID', 'exchangeID', 'asset')
-      .from(this.assetsTableName)
-      .where({ traderID });
+    const assets = await this.getAssets({ traderID });
 
     if (assets.length === 0) {
       return [];
     }
 
+    const assetQuantities = await this.getAssetQuantities({ assets, time });
+
+    return assets.map((asset) => {
+      const quantity = assetQuantities[asset.ID];
+      return Object.assign({}, asset, { quantity });
+    });
+  }
+
+  async getAssets({ traderID }) {
+    return this.knexConn
+      .select('ID', 'traderID', 'exchangeID', 'asset')
+      .from(this.assetsTableName)
+      .where({ traderID });
+  }
+
+  async getAssetQuantities({ assets, time }) {
     let assetQuantitiesSQLs = await assets.map(asset => this.knexConn
       .select('traderExchangeAssetID', 'quantity')
       .from(this.tableName)
@@ -177,9 +101,75 @@ module.exports = class PortfolioRepo {
       return acc;
     }, {});
 
-    return assets.map((asset) => {
-      const quantity = assetQuantities[asset.ID];
-      return Object.assign({}, asset, { quantity });
+    return assetQuantities;
+  }
+
+  async getAsset({ traderID, exchangeID, asset }) {
+    const [assetObj] = await this.knexConn
+      .select()
+      .from(this.assetsTableName)
+      .where({
+        traderID,
+        exchangeID,
+        asset,
+      });
+
+    return assetObj;
+  }
+
+  async createAssetIfNotExists({ traderID, exchangeID, asset }) {
+    const assetObj = await this.getAsset({ traderID, exchangeID, asset });
+
+    let traderExchangeAssetID;
+    if (assetObj) {
+      traderExchangeAssetID = assetObj.ID;
+    }
+
+    if (!traderExchangeAssetID) {
+      [traderExchangeAssetID] = await this.knexConn.insert({
+        traderID,
+        exchangeID,
+        asset,
+      }, ['ID']).into(this.assetsTableName);
+    }
+
+    return traderExchangeAssetID;
+  }
+
+  async insertItem({ traderExchangeAssetID, time }, quantityModifier) {
+    const [lastItem] = await this.knexConn
+      .select('quantity')
+      .from(this.tableName)
+      .where({ traderExchangeAssetID })
+      .andWhere('time', '<=', msToMySQLFormat(time))
+      .orderBy('time', 'desc')
+      .limit(1);
+
+    const newQty = quantityModifier(lastItem);
+
+    const [newID] = await this.knexConn.insert({
+      traderExchangeAssetID,
+      quantity: newQty,
+      time: msToMySQLFormat(time),
+    }, ['ID']).into(this.tableName);
+
+    const futureItems = await this.knexConn
+      .select('ID', 'quantity')
+      .from(this.tableName)
+      .where({ traderExchangeAssetID })
+      .andWhere('time', '>=', msToMySQLFormat(time))
+      .andWhereNot({ ID: newID })
+      .orderBy('time', 'desc');
+
+    const updateProms = futureItems.map((item) => {
+      const qty = quantityModifier(item);
+
+      return this.knexConn
+        .into(this.tableName)
+        .where('ID', item.ID)
+        .update('quantity', qty);
     });
+
+    await Promise.all(updateProms);
   }
 };

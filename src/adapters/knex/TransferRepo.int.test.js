@@ -510,3 +510,47 @@ describe('findWithdrawals', () => {
     expect(uniqueTypes).toHaveLength(1);
   });
 });
+
+describe('use', () => {
+  let withdrawalsInDB;
+  let req;
+
+  beforeEach(async () => {
+    await knex(tableName).truncate();
+
+    withdrawalsInDB = [
+      {
+        type: 'withdrawal',
+        traderID: 'trader1',
+        sourceID: 'source1',
+        exchangeID: 'binance',
+        asset: 'BTC',
+        time: msToMySQLFormat(1000),
+        quantity: 123.12345678,
+        quantityUnused: 123.12345678,
+      },
+    ];
+
+    req = {
+      type: withdrawalsInDB[0].type,
+      traderID: withdrawalsInDB[0].traderID,
+      exchangeID: withdrawalsInDB[0].exchangeID,
+      sourceID: withdrawalsInDB[0].sourceID,
+    };
+
+    await knex.insert(withdrawalsInDB).into(tableName);
+  });
+
+  it('decrements unused quantity', async () => {
+    req.quantity = 123.12345678;
+    await transferRepo.use(req);
+
+    const rows = await knex.select('quantityUnused').from(tableName);
+    expect(rows[0].quantityUnused).toEqual(0);
+  });
+
+  it('throws error when not enough unused qty', async () => {
+    req.quantity = 133.12345678;
+    expect(transferRepo.use(req)).rejects.toThrow();
+  });
+});

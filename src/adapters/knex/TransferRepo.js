@@ -1,4 +1,5 @@
 const VError = require('verror');
+const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class TransferRepo {
@@ -143,5 +144,47 @@ module.exports = class TransferRepo {
     }
 
     return query;
+  }
+
+  async use({
+    type,
+    traderID,
+    exchangeID,
+    sourceID,
+    quantity,
+  }) {
+    const [item] = await this.knexConn
+      .select('quantityUnused', 'quantity')
+      .from(this.tableName)
+      .where({
+        type,
+        traderID,
+        exchangeID,
+        sourceID,
+      });
+
+    const quantityUnusedNum = new BigNumber(item.quantityUnused);
+    const newQuantityUnused = quantityUnusedNum.minus(quantity).toNumber();
+
+    if (newQuantityUnused < 0) {
+      const info = {
+        type,
+        traderID,
+        exchangeID,
+        sourceID,
+        quantity,
+      };
+      throw new VError({ name: 'BadRequest', info }, 'not enough unused quantity');
+    }
+
+    await this.knexConn
+      .into(this.tableName)
+      .where({
+        type,
+        traderID,
+        exchangeID,
+        sourceID,
+      })
+      .update('quantityUnused', newQuantityUnused);
   }
 };
