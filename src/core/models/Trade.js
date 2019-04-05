@@ -34,6 +34,7 @@ module.exports = class Trade {
     this.ID = value.ID;
     this.traderID = value.traderID;
     this.sourceID = value.sourceID;
+    this.sourceType = value.sourceType;
     this.exchangeID = value.exchangeID;
     this.asset = value.asset;
     this.quoteAsset = value.quoteAsset;
@@ -50,6 +51,7 @@ module.exports = class Trade {
       ID: this.ID,
       traderID: this.traderID,
       sourceID: this.sourceID,
+      sourceType: this.sourceType,
       exchangeID: this.exchangeID,
       asset: this.asset,
       quoteAsset: this.quoteAsset,
