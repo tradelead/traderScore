@@ -24,7 +24,7 @@ module.exports = class KnexUnitOfWorkFactory {
           uowEvents.flush();
         });
 
-        // prevent memory leak.
+        // prevent memory leak. otherwise complete listener would wait forever.
         uow.once('rollback', () => {
           uow = null;
           uowEvents = null;
