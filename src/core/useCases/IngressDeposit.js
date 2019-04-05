@@ -42,11 +42,10 @@ module.exports = class IngressDeposit {
 
     try {
       await this.unitOfWork.transferRepo.addDeposit(deposit);
+      await this.unitOfWork.complete();
     } catch (e) {
       await this.unitOfWork.rollback();
       throw e;
     }
-
-    await this.unitOfWork.complete();
   }
 };

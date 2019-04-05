@@ -54,11 +54,10 @@ module.exports = class IngressWithdrawal {
 
       await this.unitOfWork.transferRepo.addWithdrawal(withdrawal);
       await newTrade;
+      await this.unitOfWork.complete();
     } catch (e) {
       await this.unitOfWork.rollback();
       throw e;
     }
-
-    await this.unitOfWork.complete();
   }
 };

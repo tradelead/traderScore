@@ -74,11 +74,10 @@ module.exports = class IngressFilledOrder {
     try {
       await saveOrder;
       await newTrade;
+      await this.unitOfWork.complete();
     } catch (e) {
       await this.unitOfWork.rollback();
       throw e;
     }
-
-    await this.unitOfWork.complete();
   }
 };
