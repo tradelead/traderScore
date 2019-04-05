@@ -21,9 +21,16 @@ function standardDeviation(values) {
 }
 
 module.exports = class TradeRepo {
-  constructor({ knexConn, numRecentTrades }) {
+  constructor({
+    knexConn,
+    numRecentTrades,
+    orderRepoFactory,
+    transferRepoFactory,
+  }) {
     this.knexConn = knexConn;
     this.numRecentTrades = numRecentTrades;
+    this.orderRepo = orderRepoFactory.create(knexConn);
+    this.transferRepo = transferRepoFactory.create(knexConn);
     this.tableName = 'trades';
   }
 
@@ -82,8 +89,47 @@ module.exports = class TradeRepo {
       exitPrice: trade.exit.price,
     };
 
+    const markUsedProm = this.markSourceUsed({
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.entry.sourceID,
+      sourceType: trade.entry.sourceType,
+      quantity: trade.quantity,
+    });
+
     const [ID] = await this.knexConn.insert(dbObj, ['ID']).into(this.tableName);
+    await markUsedProm;
+
     return ID;
+  }
+
+  async markSourceUsed({
+    traderID,
+    exchangeID,
+    sourceID,
+    sourceType,
+    quantity,
+  }) {
+    if (sourceType === 'order') {
+      return this.orderRepo.use({
+        traderID,
+        exchangeID,
+        sourceID,
+        quantity,
+      });
+    }
+
+    if (sourceType === 'deposit') {
+      return this.transferRepo.use({
+        type: 'deposit',
+        traderID,
+        exchangeID,
+        sourceID,
+        quantity,
+      });
+    }
+
+    throw new Error('cannot mark source used because source type unknown');
   }
 
   async getRecentDailyTradeChangeStdDev(traderID, exitTime) {

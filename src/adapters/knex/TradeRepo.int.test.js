@@ -1,3 +1,4 @@
+const sinon = require('sinon');
 const knexFactory = require('knex');
 const knexConfig = require('./knexfile');
 const msToMySQLFormat = require('./msToMySQLFormat');
@@ -7,7 +8,28 @@ const Trade = require('../../core/models/Trade');
 const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
-const tradeRepo = new TradeRepo({ knexConn: knex, numRecentTrades: 10 });
+const orderRepo = {
+  use: sinon.spy(),
+};
+
+const orderRepoFactory = {
+  create: () => orderRepo,
+};
+
+const transferRepo = {
+  use: sinon.spy(),
+};
+
+const transferRepoFactory = {
+  create: () => transferRepo,
+};
+
+const tradeRepo = new TradeRepo({
+  knexConn: knex,
+  numRecentTrades: 10,
+  orderRepoFactory,
+  transferRepoFactory,
+});
 const tableName = 'trades';
 
 afterAll(async () => {
@@ -156,8 +178,8 @@ describe('getRecentDailyTradeChangeMean', () => {
   });
 });
 
-test('addTrade', async () => {
-  const trade = new Trade({
+describe('addTrade', () => {
+  const defaultTrade = {
     traderID: 'trader1',
     sourceID: 'source1',
     sourceType: 'order',
@@ -177,11 +199,44 @@ test('addTrade', async () => {
     },
     weight: 0.5,
     score: 12.12345678,
+  };
+
+  test('saves to db', async () => {
+    const trade = new Trade(defaultTrade);
+
+    const id = await tradeRepo.addTrade(trade);
+    trade.ID = id.toString();
+
+    const [dbRow] = await knex(tableName).select().where({ ID: id });
+    expect(TradeRepo.dbRowToTrade(dbRow)).toEqual(trade);
   });
 
-  const id = await tradeRepo.addTrade(trade);
-  trade.ID = id.toString();
+  it('uses order', async () => {
+    const trade = new Trade(defaultTrade);
+    trade.entry.sourceType = 'order';
 
-  const [dbRow] = await knex(tableName).select().where({ ID: id });
-  expect(TradeRepo.dbRowToTrade(dbRow)).toEqual(trade);
+    await tradeRepo.addTrade(trade);
+
+    sinon.assert.calledWith(orderRepo.use, {
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.sourceID,
+      quantity: trade.quantity,
+    });
+  });
+
+  it('uses deposit', async () => {
+    const trade = new Trade(defaultTrade);
+    trade.entry.sourceType = 'deposit';
+
+    await tradeRepo.addTrade(trade);
+
+    sinon.assert.calledWith(transferRepo.use, {
+      type: 'deposit',
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.entry.sourceID,
+      quantity: trade.quantity,
+    });
+  });
 });
