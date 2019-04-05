@@ -13,12 +13,16 @@ services:
       DATABASE_PASSWORD: root
       DATABASE_POOL_MIN: 1
       DATABASE_POOL_MAX: 1
+      REDIS_URL: redis://redis_db:6379
     depends_on:
       - mysql
+      - redis_db
   mysql:
     image: mysql:5.7
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: test
     ports:
-      - 3306:3306
+      - 9906:3306
+  redis_db:
+    image: redis:5.0

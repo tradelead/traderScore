@@ -13,6 +13,7 @@ services:
       DATABASE_PASSWORD: root
       DATABASE_POOL_MIN: 1
       DATABASE_POOL_MAX: 1
+      REDIS_URL: redis://redis_db:6379
     depends_on:
       mysql:
         condition: service_healthy
@@ -25,3 +26,5 @@ services:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       timeout: 5s
       retries: 12
+  redis_db:
+    image: redis:5.0
