@@ -11,24 +11,31 @@ module.exports = class KnexUnitOfWorkFactory {
   create() {
     return new Promise((resolve, reject) => {
       this.knex.transaction((trx) => {
-        let uow = new KnexUnitOfWork(trx);
-        let uowEvents = new BufferedEventEmitter(this.eventEmitter);
+        const uow = new KnexUnitOfWork(trx);
+        const uowEvents = new BufferedEventEmitter(this.eventEmitter);
 
         Promise.all(Object.keys(this.serviceFactories).map(async (key) => {
-          uow[key] = await this.serviceFactories[key].create(trx, uowEvents, uow);
+          uow[key] = await this.serviceFactories[key].create({
+            knexConn: trx,
+            events: uowEvents,
+            unitOfWork: uow,
+          });
         }))
           .then(() => resolve(uow))
           .catch(e => reject(e));
 
-        uow.once('complete', () => {
+        // Only one event will ever be called, therefore to prevent
+        // a memory leak listeners call removeListener for the other.
+        let uowRollbackListener;
+        const uowCompleteListener = () => {
+          uowEvents.removeListener('rollback', uowRollbackListener);
           uowEvents.flush();
-        });
-
-        // prevent memory leak. otherwise complete listener would wait forever.
-        uow.once('rollback', () => {
-          uow = null;
-          uowEvents = null;
-        });
+        };
+        uowRollbackListener = () => {
+          uowEvents.removeListener('complete', uowCompleteListener);
+        };
+        uow.once('complete', uowCompleteListener);
+        uow.once('rollback', uowRollbackListener);
       });
     });
   }
