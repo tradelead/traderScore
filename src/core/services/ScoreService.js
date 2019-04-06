@@ -97,7 +97,6 @@ module.exports = class ScoreService {
 
   async calculateScore({ traderID, period }) {
     let score = 1;
-    let offset = 0;
     let periodConfig;
 
     if (period) {
@@ -126,13 +125,14 @@ module.exports = class ScoreService {
         };
       };
 
+      let lastStartTime = startTime;
       for (; ;) {
         const trades = await this.tradeRepo.getTrades({
           traderID,
-          period,
-          offset,
-          startTime,
+          startTime: lastStartTime,
           endTime,
+          limit: this.tradeFetchLimit,
+          sort: 'asc',
         });
 
         if (!trades || !Array.isArray(trades) || trades.length === 0) {
@@ -143,7 +143,7 @@ module.exports = class ScoreService {
 
         await this.traderScoreRepo.bulkUpdateTraderScore(traderScores);
 
-        offset += this.tradeFetchLimit;
+        lastStartTime = trades[trades.length - 1].exit.time;
       }
 
       return score;
