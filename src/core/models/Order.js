@@ -11,6 +11,10 @@ const schema = Joi.object().keys({
   time: Joi.number().greater(0).required().label('Time'),
   quantity: Joi.number().positive().required().label('Quantity'),
   price: Joi.number().positive().required().label('Price'),
+  fee: Joi.object().keys({
+    quantity: Joi.number().label('Fee Quantity'),
+    asset: Joi.string().max(8).uppercase().label('Fee Asset'),
+  }),
 }).unknown();
 
 module.exports = class Trade {
@@ -31,6 +35,7 @@ module.exports = class Trade {
     this.time = value.time;
     this.quantity = value.quantity;
     this.price = value.price;
+    this.fee = value.fee;
   }
 
   valid() {
@@ -45,6 +50,7 @@ module.exports = class Trade {
       time: this.time,
       quantity: this.quantity,
       price: this.price,
+      fee: this.fee,
     });
 
     return error == null;
