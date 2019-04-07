@@ -1,4 +1,5 @@
 const sinon = require('sinon');
+const { EventEmitter } = require('events');
 const TradeService = require('./TradeService');
 
 const defaultReq = {
@@ -41,6 +42,7 @@ beforeEach(() => {
     orderRepo: {
       getFilledOrders: sinon.stub(),
     },
+    events: new EventEmitter(),
     getEntriesLimitPerFetch: 3,
   };
 });
@@ -211,6 +213,16 @@ describe('newTrade', () => {
     await service.newTrade(defaultReq);
 
     sinon.assert.callCount(deps.tradeRepo.addTrade, 2);
+  });
+
+  it('emits newTrade for each event', async () => {
+    const eventEmittedTrades = [];
+    deps.events.on('newTrade', (trade) => {
+      eventEmittedTrades.push(trade);
+    });
+
+    const trades = await service.newTrade(defaultReq);
+    expect(eventEmittedTrades).toEqual(trades);
   });
 
   it('calls scoreService.incrementScores for each trade', async () => {

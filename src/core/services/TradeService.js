@@ -22,6 +22,7 @@ module.exports = class TradeService {
     getEntriesLimitPerFetch,
     orderRepo,
     transferRepo,
+    events,
   }) {
     this.tradeRepo = tradeRepo;
     this.portfolioService = portfolioService;
@@ -30,6 +31,7 @@ module.exports = class TradeService {
     this.orderRepo = orderRepo;
     this.transferRepo = transferRepo;
     this.getEntriesLimitPerFetch = getEntriesLimitPerFetch;
+    this.events = events;
   }
 
   async newTrade(req) {
@@ -80,7 +82,10 @@ module.exports = class TradeService {
       return this.createTradeObj(newTradeReq);
     }));
 
-    const tradeSavePromises = trades.map(async trade => this.tradeRepo.addTrade(trade));
+    const tradeSavePromises = trades.map(async (trade) => {
+      await this.tradeRepo.addTrade(trade);
+      this.events.emit('newTrade', trade);
+    });
     await Promise.all(tradeSavePromises);
 
     if (value.incrementScores) {
