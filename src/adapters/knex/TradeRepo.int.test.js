@@ -1,4 +1,3 @@
-const sinon = require('sinon');
 const knexFactory = require('knex');
 const knexConfig = require('./knexfile');
 const msToMySQLFormat = require('./msToMySQLFormat');
@@ -9,7 +8,7 @@ const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
 const orderRepo = {
-  use: sinon.spy(),
+  use: jest.fn(),
 };
 
 const orderRepoFactory = {
@@ -17,7 +16,7 @@ const orderRepoFactory = {
 };
 
 const transferRepo = {
-  use: sinon.spy(),
+  use: jest.fn(),
 };
 
 const transferRepoFactory = {
@@ -217,7 +216,7 @@ describe('addTrade', () => {
 
     await tradeRepo.addTrade(trade);
 
-    sinon.assert.calledWith(orderRepo.use, {
+    expect(orderRepo.use).toHaveBeenCalledWith({
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,
       sourceID: trade.sourceID,
@@ -231,7 +230,7 @@ describe('addTrade', () => {
 
     await tradeRepo.addTrade(trade);
 
-    sinon.assert.calledWith(transferRepo.use, {
+    expect(transferRepo.use).toHaveBeenCalledWith({
       type: 'deposit',
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,

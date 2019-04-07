@@ -1,4 +1,3 @@
-const sinon = require('sinon');
 const knexFactory = require('knex');
 const knexConfig = require('./knexfile');
 const msToMySQLFormat = require('./msToMySQLFormat');
@@ -10,8 +9,8 @@ const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
 const portfolioRepo = {
-  incr: sinon.spy(),
-  decr: sinon.spy(),
+  incr: jest.fn(),
+  decr: jest.fn(),
 };
 
 const portfolioRepoFactory = {
@@ -112,13 +111,14 @@ describe('addDeposit', () => {
   });
 
   it('calls portfolioRepo incr with correct params', async () => {
-    portfolioRepo.incr.calledOnceWithExactly({
+    expect(portfolioRepo.incr).toHaveBeenCalledWith({
       traderID: deposit.traderID,
       exchangeID: deposit.exchangeID,
       asset: deposit.asset,
       time: deposit.time,
       quantity: deposit.quantity,
     });
+    expect(portfolioRepo.incr).toHaveBeenCalledTimes(1);
   });
 
   it('prevents duplicates of trader + exchange + source', async () => {
@@ -211,13 +211,14 @@ describe('addWithdrawal', () => {
   });
 
   it('calls portfolioRepo decr with correct params', async () => {
-    portfolioRepo.decr.calledOnceWithExactly({
+    expect(portfolioRepo.decr).toHaveBeenCalledWith({
       traderID: withdrawal.traderID,
       exchangeID: withdrawal.exchangeID,
       asset: withdrawal.asset,
       time: withdrawal.time,
       quantity: withdrawal.quantity,
     });
+    expect(portfolioRepo.decr).toHaveBeenCalledTimes(1);
   });
 
   it('prevents duplicates of trader + exchange + source', async () => {
