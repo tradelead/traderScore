@@ -4,8 +4,6 @@ exports.up = async function (knex) {
     t.increments('ID').primary();
     t.string('traderID', 60).notNullable();
     t.string('exchangeID', 60).notNullable();
-
-    t.unique(['traderID', 'exchangeID']);
   });
 };
 

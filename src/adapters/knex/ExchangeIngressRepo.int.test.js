@@ -17,16 +17,21 @@ afterAll(async () => {
   await knex.destroy();
 });
 
-it('works', async () => {
-  const req = {
-    traderID: 'traderID',
-    exchangeID: 'binance',
-  };
+const req = {
+  traderID: 'traderID',
+  exchangeID: 'binance',
+};
 
+it('works', async () => {
   let isComplete = await exchangeIngressRepo.isComplete(req);
   expect(isComplete).toEqual(false);
 
   await exchangeIngressRepo.markComplete(req);
   isComplete = await exchangeIngressRepo.isComplete(req);
   expect(isComplete).toEqual(true);
+});
+
+it('does not throw error on duplicate', async () => {
+  await exchangeIngressRepo.markComplete(req);
+  await exchangeIngressRepo.markComplete(req);
 });
