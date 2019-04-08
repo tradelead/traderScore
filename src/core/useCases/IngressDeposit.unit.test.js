@@ -18,7 +18,7 @@ beforeEach(() => {
   };
 
   unitOfWork = {
-    transferRepo: {
+    transferService: {
       addDeposit: sinon.stub(),
     },
     exchangeIngressRepo: {
@@ -35,7 +35,7 @@ beforeEach(() => {
   deps = { unitOfWorkFactory };
 
   unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
-  unitOfWork.transferRepo.addDeposit.resolves('deposit123');
+  unitOfWork.transferService.addDeposit.resolves('deposit123');
 });
 
 it('throws error if ingress not complete when past false', async () => {
@@ -57,7 +57,7 @@ it('saves deposit', async () => {
   await useCase.execute(defaultReq);
 
   const deposit = new Deposit(defaultReq);
-  sinon.assert.calledWith(unitOfWork.transferRepo.addDeposit, deposit);
+  sinon.assert.calledWith(unitOfWork.transferService.addDeposit, deposit);
 });
 
 it('completes unit of work', async () => {
@@ -68,7 +68,7 @@ it('completes unit of work', async () => {
 });
 
 it('rollback unit of work on addDeposit error', async () => {
-  unitOfWork.transferRepo.addDeposit.rejects();
+  unitOfWork.transferService.addDeposit.rejects();
 
   const useCase = new IngressDeposit(deps);
   try {
@@ -79,7 +79,7 @@ it('rollback unit of work on addDeposit error', async () => {
 });
 
 it('throw error on addDeposit error', async () => {
-  unitOfWork.transferRepo.addDeposit.rejects();
+  unitOfWork.transferService.addDeposit.rejects();
 
   const useCase = new IngressDeposit(deps);
   expect(useCase.execute(defaultReq)).rejects.toThrow();

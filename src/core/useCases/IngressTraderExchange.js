@@ -12,7 +12,7 @@ module.exports = class IngressTraderExchange {
     ingressWithdrawal,
     exchangeService,
     orderRepo,
-    transferRepo,
+    transferService,
     exchangeActivityLimitPerFetch,
     exchangeIngressRepo,
     scoreService,
@@ -22,7 +22,7 @@ module.exports = class IngressTraderExchange {
     this.ingressWithdrawal = ingressWithdrawal;
     this.exchangeService = exchangeService;
     this.orderRepo = orderRepo;
-    this.transferRepo = transferRepo;
+    this.transferService = transferService;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.exchangeIngressRepo = exchangeIngressRepo;
     this.scoreService = scoreService;
@@ -49,7 +49,7 @@ module.exports = class IngressTraderExchange {
     });
     const ordersStartTime = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
 
-    const lastDeposits = await this.transferRepo.findDeposits({
+    const lastDeposits = await this.transferService.findDeposits({
       traderID,
       exchangeID,
       limit: 1,
@@ -57,7 +57,7 @@ module.exports = class IngressTraderExchange {
     });
     const depositsStartTime = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
 
-    const lastWithdraws = await this.transferRepo.findWithdrawals({
+    const lastWithdraws = await this.transferService.findWithdrawals({
       traderID,
       exchangeID,
       limit: 1,

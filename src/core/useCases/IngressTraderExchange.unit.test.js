@@ -62,7 +62,7 @@ beforeEach(() => {
     orderRepo: {
       find: sinon.stub(),
     },
-    transferRepo: {
+    transferService: {
       findDeposits: sinon.stub(),
       findWithdrawals: sinon.stub(),
     },
@@ -274,7 +274,7 @@ describe('exchangeService.getSuccessfulDeposits', () => {
 
   test('first call has startTime of recent order', async () => {
     const order = uniqueObjectWithTimeAndSourceIDEqual(123, defaultOrder);
-    deps.transferRepo.findDeposits
+    deps.transferService.findDeposits
       .withArgs({
         traderID: defaultReq.traderID,
         exchangeID: defaultReq.exchangeID,
@@ -397,7 +397,7 @@ describe('exchangeService.getSuccessfulWithdrawals', () => {
 
   test('first call has startTime of recent order', async () => {
     const withdrawal = uniqueObjectWithTimeAndSourceIDEqual(123, defaultWithdrawal);
-    deps.transferRepo.findWithdrawals
+    deps.transferService.findWithdrawals
       .withArgs({
         traderID: defaultReq.traderID,
         exchangeID: defaultReq.exchangeID,

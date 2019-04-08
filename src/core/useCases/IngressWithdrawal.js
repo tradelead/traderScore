@@ -52,7 +52,7 @@ module.exports = class IngressWithdrawal {
         incrementScores: !value.past,
       });
 
-      await this.unitOfWork.transferRepo.addWithdrawal(withdrawal);
+      await this.unitOfWork.transferService.addWithdrawal(withdrawal);
       await newTrade;
       await this.unitOfWork.complete();
     } catch (e) {
