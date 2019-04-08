@@ -10,6 +10,13 @@ module.exports = class ExchangeIngressRepo {
       .into(this.tableName);
   }
 
+  async markIncomplete({ traderID, exchangeID }) {
+    await this.knexConn
+      .from(this.tableName)
+      .where({ traderID, exchangeID })
+      .del();
+  }
+
   async isComplete({ traderID, exchangeID }) {
     const items = await this.knexConn
       .select()
