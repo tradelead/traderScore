@@ -2,16 +2,8 @@ const Trade = require('../../core/models/Trade');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class TradeRepo {
-  constructor({
-    knexConn,
-    numRecentTrades,
-    orderRepoFactory,
-    transferRepoFactory,
-  }) {
+  constructor({ knexConn }) {
     this.knexConn = knexConn;
-    this.numRecentTrades = numRecentTrades;
-    this.orderRepo = orderRepoFactory.create(knexConn);
-    this.transferRepo = transferRepoFactory.create(knexConn);
     this.tableName = 'trades';
   }
 

@@ -7,28 +7,7 @@ const Trade = require('../../core/models/Trade');
 const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
-const orderRepo = {
-  use: jest.fn(),
-};
-
-const orderRepoFactory = {
-  create: () => orderRepo,
-};
-
-const transferRepo = {
-  use: jest.fn(),
-};
-
-const transferRepoFactory = {
-  create: () => transferRepo,
-};
-
-const tradeRepo = new TradeRepo({
-  knexConn: knex,
-  numRecentTrades: 10,
-  orderRepoFactory,
-  transferRepoFactory,
-});
+const tradeRepo = new TradeRepo({ knexConn: knex });
 const tableName = 'trades';
 
 afterAll(async () => {
