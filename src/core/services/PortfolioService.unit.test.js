@@ -6,6 +6,8 @@ let deps;
 beforeEach(() => {
   deps = {
     portfolioRepo: {
+      incr: sinon.stub(),
+      decr: sinon.stub(),
       snapshot: sinon.stub(),
     },
     exchangeService: {
@@ -102,4 +104,22 @@ describe('BTCValue', () => {
       });
     });
   });
+});
+
+test('incr should call portfolioRepo', async () => {
+  const service = new PortfolioService(deps);
+  await service.incr({ test: 1 });
+  sinon.assert.calledWith(deps.portfolioRepo.incr, { test: 1 });
+});
+
+test('decr should call portfolioRepo', async () => {
+  const service = new PortfolioService(deps);
+  await service.decr({ test: 1 });
+  sinon.assert.calledWith(deps.portfolioRepo.decr, { test: 1 });
+});
+
+test('snapshot should call portfolioRepo', async () => {
+  const service = new PortfolioService(deps);
+  await service.snapshot({ test: 1 });
+  sinon.assert.calledWith(deps.portfolioRepo.snapshot, { test: 1 });
 });

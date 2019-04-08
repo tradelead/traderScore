@@ -32,4 +32,16 @@ module.exports = class PortfolioService {
 
     return btcValues.reduce(sum, 0);
   }
+
+  incr(args) {
+    return this.portfolioRepo.incr(args);
+  }
+
+  decr(args) {
+    return this.portfolioRepo.decr(args);
+  }
+
+  snapshot(args) {
+    return this.portfolioRepo.snapshot(args);
+  }
 };
