@@ -31,6 +31,7 @@ module.exports = class Trade {
     this.time = value.time;
     this.quantity = value.quantity;
     this.price = value.price;
+    this.fee = value.fee;
   }
 
   valid() {
