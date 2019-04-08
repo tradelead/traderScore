@@ -29,6 +29,10 @@ it('works', async () => {
   await exchangeIngressRepo.markComplete(req);
   isComplete = await exchangeIngressRepo.isComplete(req);
   expect(isComplete).toEqual(true);
+
+  await exchangeIngressRepo.markIncomplete(req);
+  isComplete = await exchangeIngressRepo.isComplete(req);
+  expect(isComplete).toEqual(false);
 });
 
 it('does not throw error on duplicate', async () => {

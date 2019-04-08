@@ -2,7 +2,7 @@ const VError = require('verror');
 const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
-module.exports = class OrderRepo {
+module.exports = class PortfolioRepo {
   constructor({ knexConn, portfolioRepoFactory }) {
     this.knexConn = knexConn;
     this.portfolioRepo = portfolioRepoFactory.create(knexConn);
@@ -19,27 +19,10 @@ module.exports = class OrderRepo {
     const obj = Object.assign({}, order);
     obj.time = msToMySQLFormat(obj.time);
     obj.quantityUnused = obj.quantity;
-    delete obj.fee;
 
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
-    try {
-      await this.updatePortfolio(order);
-      return await insertProm;
-    } catch (cause) {
-      const info = { order };
-      throw new VError({ cause, info }, 'error adding order');
-    }
-  }
-
-  async updatePortfolio(order) {
-    let assetPortfolioFn;
-    if (order.side === 'buy') {
-      assetPortfolioFn = this.portfolioRepo.incr.bind(this.portfolioRepo);
-    } else if (order.side === 'sell') {
-      assetPortfolioFn = this.portfolioRepo.decr.bind(this.portfolioRepo);
-    }
-    const assetProm = assetPortfolioFn({
+    const incrProm = this.portfolioRepo.incr({
       traderID: order.traderID,
       exchangeID: order.exchangeID,
       asset: order.asset,
@@ -47,34 +30,13 @@ module.exports = class OrderRepo {
       quantity: order.quantity,
     });
 
-    let quoteAssetPortfolioFn;
-    if (order.side === 'buy') {
-      quoteAssetPortfolioFn = this.portfolioRepo.decr.bind(this.portfolioRepo);
-    } else if (order.side === 'sell') {
-      quoteAssetPortfolioFn = this.portfolioRepo.incr.bind(this.portfolioRepo);
+    try {
+      await incrProm;
+      return await insertProm;
+    } catch (cause) {
+      const info = { order };
+      throw new VError({ cause, info }, 'error adding order');
     }
-    const quoteAssetProm = quoteAssetPortfolioFn({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.quoteAsset,
-      time: order.time,
-      quantity: new BigNumber(order.quantity).times(order.price).toNumber(),
-    });
-
-    let feeAssetProm;
-    if (order.fee && order.fee.quantity > 0 && order.fee.asset) {
-      feeAssetProm = this.portfolioRepo.decr({
-        traderID: order.traderID,
-        exchangeID: order.exchangeID,
-        asset: order.fee.asset,
-        time: order.time,
-        quantity: order.fee.quantity,
-      });
-    }
-
-    await assetProm;
-    await quoteAssetProm;
-    await feeAssetProm;
   }
 
   async getFilledOrders({

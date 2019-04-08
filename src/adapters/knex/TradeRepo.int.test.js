@@ -7,28 +7,7 @@ const Trade = require('../../core/models/Trade');
 const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
-const orderRepo = {
-  use: jest.fn(),
-};
-
-const orderRepoFactory = {
-  create: () => orderRepo,
-};
-
-const transferRepo = {
-  use: jest.fn(),
-};
-
-const transferRepoFactory = {
-  create: () => transferRepo,
-};
-
-const tradeRepo = new TradeRepo({
-  knexConn: knex,
-  numRecentTrades: 10,
-  orderRepoFactory,
-  transferRepoFactory,
-});
+const tradeRepo = new TradeRepo({ knexConn: knex });
 const tableName = 'trades';
 
 afterAll(async () => {
@@ -163,20 +142,6 @@ describe('getTrades', () => {
   });
 });
 
-describe('getRecentDailyTradeChangeStdDev', () => {
-  it('works', async () => {
-    const stdDev = await tradeRepo.getRecentDailyTradeChangeStdDev('trader1', 1560000000000);
-    expect(stdDev).toBe(1.6164e-14);
-  });
-});
-
-describe('getRecentDailyTradeChangeMean', () => {
-  it('works', async () => {
-    const mean = await tradeRepo.getRecentDailyTradeChangeMean('trader1', 1560000000000);
-    expect(mean).toBe(2.4246e-14);
-  });
-});
-
 describe('addTrade', () => {
   const defaultTrade = {
     traderID: 'trader1',
@@ -208,34 +173,5 @@ describe('addTrade', () => {
 
     const [dbRow] = await knex(tableName).select().where({ ID: id });
     expect(TradeRepo.dbRowToTrade(dbRow)).toEqual(trade);
-  });
-
-  it('uses order', async () => {
-    const trade = new Trade(defaultTrade);
-    trade.entry.sourceType = 'order';
-
-    await tradeRepo.addTrade(trade);
-
-    expect(orderRepo.use).toHaveBeenCalledWith({
-      traderID: trade.traderID,
-      exchangeID: trade.exchangeID,
-      sourceID: trade.sourceID,
-      quantity: trade.quantity,
-    });
-  });
-
-  it('uses deposit', async () => {
-    const trade = new Trade(defaultTrade);
-    trade.entry.sourceType = 'deposit';
-
-    await tradeRepo.addTrade(trade);
-
-    expect(transferRepo.use).toHaveBeenCalledWith({
-      type: 'deposit',
-      traderID: trade.traderID,
-      exchangeID: trade.exchangeID,
-      sourceID: trade.entry.sourceID,
-      quantity: trade.quantity,
-    });
   });
 });

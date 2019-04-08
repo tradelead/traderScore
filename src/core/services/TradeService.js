@@ -1,6 +1,8 @@
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 const Trade = require('../models/Trade');
+const averageArr = require('../utilities/averageArr');
+const standardDeviationArr = require('../utilities/standardDeviationArr');
 
 const schema = Joi.object().keys({
   sourceID: Joi.string().required().label('Source ID'),
@@ -16,6 +18,7 @@ const schema = Joi.object().keys({
 module.exports = class TradeService {
   constructor({
     tradeRepo,
+    numRecentTrades,
     portfolioService,
     exchangeService,
     scoreService,
@@ -25,6 +28,7 @@ module.exports = class TradeService {
     events,
   }) {
     this.tradeRepo = tradeRepo;
+    this.numRecentTrades = numRecentTrades;
     this.portfolioService = portfolioService;
     this.exchangeService = exchangeService;
     this.scoreService = scoreService;
@@ -52,41 +56,10 @@ module.exports = class TradeService {
       exitTime: value.exitTime,
     });
 
-    /** a trade will be created for each entry */
-    const trades = await Promise.all(entries.map(async (entry) => {
-      const newTradeReq = Object.assign({}, value);
+    const tradePromises = entries.map(entry => this.createTradeFromEntry({ req: value, entry }));
+    const trades = await Promise.all(tradePromises);
 
-      newTradeReq.quantity = entry.quantity;
-      newTradeReq.entry = {
-        time: entry.time,
-        sourceID: entry.sourceID,
-        sourceType: entry.sourceType,
-      };
-      newTradeReq.exit = { time: value.exitTime };
-      newTradeReq.quoteAsset = await this.getEntryQuoteAsset(entry, value.exchangeID, value.asset);
-
-      newTradeReq.entry.price = await this.exchangeService.getPrice({
-        exchangeID: value.exchangeID,
-        asset: value.asset,
-        quoteAsset: newTradeReq.quoteAsset,
-        time: entry.time,
-      });
-
-      newTradeReq.exit.price = await this.exchangeService.getPrice({
-        exchangeID: value.exchangeID,
-        asset: value.asset,
-        quoteAsset: newTradeReq.quoteAsset,
-        time: value.exitTime,
-      });
-
-      return this.createTradeObj(newTradeReq);
-    }));
-
-    const tradeSavePromises = trades.map(async (trade) => {
-      await this.tradeRepo.addTrade(trade);
-      this.events.emit('newTrade', trade);
-    });
-    await Promise.all(tradeSavePromises);
+    await Promise.all(trades.map(trade => this.addTrade(trade)));
 
     if (value.incrementScores) {
       // eslint-disable-next-line no-restricted-syntax
@@ -228,6 +201,35 @@ module.exports = class TradeService {
     throw new Error('Unexpected entry type');
   }
 
+  async createTradeFromEntry({ req, entry }) {
+    const newTradeReq = Object.assign({}, req);
+
+    newTradeReq.quantity = entry.quantity;
+    newTradeReq.entry = {
+      time: entry.time,
+      sourceID: entry.sourceID,
+      sourceType: entry.sourceType,
+    };
+    newTradeReq.exit = { time: req.exitTime };
+    newTradeReq.quoteAsset = await this.getEntryQuoteAsset(entry, req.exchangeID, req.asset);
+
+    newTradeReq.entry.price = await this.exchangeService.getPrice({
+      exchangeID: req.exchangeID,
+      asset: req.asset,
+      quoteAsset: newTradeReq.quoteAsset,
+      time: entry.time,
+    });
+
+    newTradeReq.exit.price = await this.exchangeService.getPrice({
+      exchangeID: req.exchangeID,
+      asset: req.asset,
+      quoteAsset: newTradeReq.quoteAsset,
+      time: req.exitTime,
+    });
+
+    return this.createTradeObj(newTradeReq);
+  }
+
   async createTradeObj({
     sourceID,
     sourceType,
@@ -310,8 +312,8 @@ module.exports = class TradeService {
   }) {
     // Standard deviation of all the trader's exclusive trade change per day.
     // Exclusive change is the trade change minus the market change for that period.
-    const stdDevProm = this.tradeRepo.getRecentDailyTradeChangeStdDev(traderID, exitTime);
-    const meanProm = this.tradeRepo.getRecentDailyTradeChangeMean(traderID, exitTime);
+    const stdDevProm = this.getRecentDailyTradeChangeStdDev(traderID, exitTime);
+    const meanProm = this.getRecentDailyTradeChangeMean(traderID, exitTime);
 
     const dailyChangeStdDev = await stdDevProm;
     const dailyChangeMean = await meanProm;
@@ -334,5 +336,82 @@ module.exports = class TradeService {
     const weightedScore = score * weight;
 
     return weightedScore * 100;
+  }
+
+  async addTrade(trade) {
+    const addProm = this.tradeRepo.addTrade(trade);
+
+    await this.markSourceUsed({
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.entry.sourceID,
+      sourceType: trade.entry.sourceType,
+      quantity: trade.quantity,
+    });
+
+    const ID = await addProm;
+
+    this.events.emit('newTrade', trade);
+
+    return ID;
+  }
+
+  async markSourceUsed({
+    traderID,
+    exchangeID,
+    sourceID,
+    sourceType,
+    quantity,
+  }) {
+    if (sourceType === 'order') {
+      return this.orderRepo.use({
+        traderID,
+        exchangeID,
+        sourceID,
+        quantity,
+      });
+    }
+
+    if (sourceType === 'deposit') {
+      return this.transferRepo.use({
+        type: 'deposit',
+        traderID,
+        exchangeID,
+        sourceID,
+        quantity,
+      });
+    }
+
+    throw new Error('cannot mark source used because source type unknown');
+  }
+
+  async getRecentDailyTradeChangeStdDev(traderID, exitTime) {
+    const trades = await this.tradeRepo.getTrades({
+      traderID,
+      endTime: exitTime,
+      limit: this.numRecentTrades,
+    });
+    const dailyScores = trades.map((trade) => {
+      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
+      return trade.score / days;
+    });
+    return standardDeviationArr(dailyScores);
+  }
+
+  async getRecentDailyTradeChangeMean(traderID, exitTime) {
+    const trades = await this.tradeRepo.getTrades({
+      traderID,
+      endTime: exitTime,
+      limit: this.numRecentTrades,
+    });
+    const dailyScores = trades.map((trade) => {
+      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
+      return trade.score / days;
+    });
+    return averageArr(dailyScores);
+  }
+
+  async getTrades(args) {
+    return this.tradeRepo.getTrades(args);
   }
 };

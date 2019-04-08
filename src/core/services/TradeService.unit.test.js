@@ -1,6 +1,7 @@
 const sinon = require('sinon');
 const { EventEmitter } = require('events');
 const TradeService = require('./TradeService');
+const Trade = require('../models/Trade');
 
 const defaultReq = {
   sourceID: 'source123',
@@ -19,9 +20,9 @@ beforeEach(() => {
   deps = {
     tradeRepo: {
       addTrade: sinon.stub(),
-      getRecentDailyTradeChangeStdDev: sinon.stub(),
-      getRecentDailyTradeChangeMean: sinon.stub(),
+      getTrades: sinon.stub(),
     },
+    numRecentTrades: 10,
     scoreService: {
       incrementScores: sinon.stub(),
     },
@@ -38,9 +39,11 @@ beforeEach(() => {
     transferRepo: {
       findDeposits: sinon.stub(),
       findWithdrawals: sinon.stub(),
+      use: sinon.stub(),
     },
     orderRepo: {
       getFilledOrders: sinon.stub(),
+      use: sinon.stub(),
     },
     events: new EventEmitter(),
     getEntriesLimitPerFetch: 3,
@@ -54,12 +57,17 @@ describe('newTrade', () => {
     deps.exchangeService.getPrice.resolves(123);
     deps.exchangeService.getBTCValue.resolves(50);
     deps.portfolioService.BTCValue.resolves(100);
-    deps.tradeRepo.getRecentDailyTradeChangeStdDev.resolves(0.01);
-    deps.tradeRepo.getRecentDailyTradeChangeMean.resolves(0.03);
 
     service = new TradeService(deps);
 
+    sinon.stub(service, 'getRecentDailyTradeChangeStdDev');
+    service.getRecentDailyTradeChangeStdDev.resolves(0.01);
+
+    sinon.stub(service, 'getRecentDailyTradeChangeMean');
+    service.getRecentDailyTradeChangeMean.resolves(0.03);
+
     sinon.stub(service, 'getEntries');
+
     const entryTime = Date.now() - 10000;
     service.getEntries.resolves([
       {
@@ -82,6 +90,8 @@ describe('newTrade', () => {
 
     sinon.stub(service, 'getEntryQuoteAsset');
     service.getEntryQuoteAsset.resolves('ABC');
+
+    sinon.stub(service, 'addTrade');
   });
 
   describe('calls getEntries', () => {
@@ -212,17 +222,7 @@ describe('newTrade', () => {
   it('saves new trade for each entry', async () => {
     await service.newTrade(defaultReq);
 
-    sinon.assert.callCount(deps.tradeRepo.addTrade, 2);
-  });
-
-  it('emits newTrade for each event', async () => {
-    const eventEmittedTrades = [];
-    deps.events.on('newTrade', (trade) => {
-      eventEmittedTrades.push(trade);
-    });
-
-    const trades = await service.newTrade(defaultReq);
-    expect(eventEmittedTrades).toEqual(trades);
+    sinon.assert.callCount(service.addTrade, 2);
   });
 
   it('calls scoreService.incrementScores for each trade', async () => {
@@ -655,14 +655,20 @@ describe('tradeWeight', () => {
 });
 
 describe('score', () => {
+  let service;
+
   beforeEach(() => {
-    deps.tradeRepo.getRecentDailyTradeChangeStdDev.withArgs('trader123').resolves(0.01);
-    deps.tradeRepo.getRecentDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
+    service = new TradeService(deps);
+
+    sinon.stub(service, 'getRecentDailyTradeChangeStdDev');
+    service.getRecentDailyTradeChangeStdDev.withArgs('trader123').resolves(0.01);
+
+    sinon.stub(service, 'getRecentDailyTradeChangeMean');
+    service.getRecentDailyTradeChangeMean.withArgs('trader123').resolves(0.03);
   });
 
   it('returns negative', async () => {
-    const useCase = new TradeService(deps);
-    const score = await useCase.score({
+    const score = await service.score({
       traderID: 'trader123',
       tradeChange: -0.05,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
@@ -674,8 +680,7 @@ describe('score', () => {
   });
 
   it('returns positive', async () => {
-    const useCase = new TradeService(deps);
-    const score = await useCase.score({
+    const score = await service.score({
       traderID: 'trader123',
       tradeChange: 0.25,
       entryTime: Date.now() - (60 * 60 * 24 * 1000),
@@ -687,8 +692,7 @@ describe('score', () => {
   });
 
   it('returns positive and only 6 hrs', async () => {
-    const useCase = new TradeService(deps);
-    const score = await useCase.score({
+    const score = await service.score({
       traderID: 'trader123',
       tradeChange: 0.25,
       entryTime: Date.now() - (60 * 60 * 6 * 1000),
@@ -700,7 +704,6 @@ describe('score', () => {
   });
 
   it('calls getRecentDailyTradeChangeStdDev with the trader ID & exit time', async () => {
-    const useCase = new TradeService(deps);
     const req = {
       traderID: 'trader123',
       tradeChange: -0.05,
@@ -708,17 +711,16 @@ describe('score', () => {
       exitTime: Date.now(),
       weight: 0.5,
     };
-    await useCase.score(req);
+    await service.score(req);
 
     sinon.assert.calledWith(
-      deps.tradeRepo.getRecentDailyTradeChangeStdDev,
+      service.getRecentDailyTradeChangeStdDev,
       req.traderID,
       req.exitTime,
     );
   });
 
   it('calls getRecentDailyTradeChangeMean with the trader ID & exit time', async () => {
-    const useCase = new TradeService(deps);
     const req = {
       traderID: 'trader123',
       tradeChange: -0.05,
@@ -726,12 +728,93 @@ describe('score', () => {
       exitTime: Date.now(),
       weight: 0.5,
     };
-    await useCase.score(req);
+    await service.score(req);
 
     sinon.assert.calledWith(
-      deps.tradeRepo.getRecentDailyTradeChangeMean,
+      service.getRecentDailyTradeChangeMean,
       req.traderID,
       req.exitTime,
     );
   });
+});
+
+describe('addTrade', () => {
+  let trade;
+  let service;
+
+  beforeEach(() => {
+    trade = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 12.12345678,
+    });
+
+    service = new TradeService(deps);
+  });
+
+  it('calls tradeRepo.addTrade with trade', async () => {
+    service.addTrade(trade);
+
+    sinon.assert.calledWith(deps.tradeRepo.addTrade, trade);
+  });
+
+  it('emit newTrade event', async () => {
+    const eventEmittedTrades = [];
+    deps.events.on('newTrade', (eventTrade) => {
+      eventEmittedTrades.push(eventTrade);
+    });
+
+    await service.addTrade(trade);
+    expect(eventEmittedTrades).toEqual([trade]);
+  });
+
+  it('uses order', async () => {
+    trade.entry.sourceType = 'order';
+
+    await service.addTrade(trade);
+
+    sinon.assert.calledWith(deps.orderRepo.use, {
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.sourceID,
+      quantity: trade.quantity,
+    });
+  });
+
+  it('uses deposit', async () => {
+    trade.entry.sourceType = 'deposit';
+
+    await service.addTrade(trade);
+
+    sinon.assert.calledWith(deps.transferRepo.use, {
+      type: 'deposit',
+      traderID: trade.traderID,
+      exchangeID: trade.exchangeID,
+      sourceID: trade.entry.sourceID,
+      quantity: trade.quantity,
+    });
+  });
+});
+
+test('getTrades calls tradeRepo', async () => {
+  const service = new TradeService(deps);
+  await service.getTrades({ test: 1 });
+
+  sinon.assert.calledWith(deps.tradeRepo.getTrades, { test: 1 });
 });

@@ -11,6 +11,8 @@ exports.up = async function (knex) {
     t.string('quoteAsset', 10).notNullable();
     t.timestamp('time', 3).notNullable().defaultTo(knex.fn.now(3));
     t.decimal('price', 65, 8).notNullable();
+    t.string('feeAsset', 10);
+    t.decimal('feeQuantity', 65, 8);
     t.decimal('quantity', 65, 8).notNullable();
     t.decimal('quantityUnused', 65, 8).notNullable();
 

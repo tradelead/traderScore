@@ -18,7 +18,7 @@ beforeEach(() => {
   };
 
   unitOfWork = {
-    transferRepo: {
+    transferService: {
       addWithdrawal: sinon.stub(),
     },
     tradeService: {
@@ -38,7 +38,7 @@ beforeEach(() => {
   deps = { unitOfWorkFactory };
 
   unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
-  unitOfWork.transferRepo.addWithdrawal.resolves('withdrawal123');
+  unitOfWork.transferService.addWithdrawal.resolves('withdrawal123');
 });
 
 it('throws error if ingress not complete when past false', async () => {
@@ -60,7 +60,7 @@ it('saves withdrawal', async () => {
   await useCase.execute(defaultReq);
 
   const withdrawal = new Withdrawal(defaultReq);
-  sinon.assert.calledWith(unitOfWork.transferRepo.addWithdrawal, withdrawal);
+  sinon.assert.calledWith(unitOfWork.transferService.addWithdrawal, withdrawal);
 });
 
 it('completes unit of work', async () => {
@@ -71,7 +71,7 @@ it('completes unit of work', async () => {
 });
 
 it('rollback unit of work on addWithdrawal error', async () => {
-  unitOfWork.transferRepo.addWithdrawal.rejects();
+  unitOfWork.transferService.addWithdrawal.rejects();
 
   const useCase = new IngressWithdrawal(deps);
   try {
@@ -82,7 +82,7 @@ it('rollback unit of work on addWithdrawal error', async () => {
 });
 
 it('throw error on addWithdrawal error', async () => {
-  unitOfWork.transferRepo.addWithdrawal.rejects();
+  unitOfWork.transferService.addWithdrawal.rejects();
 
   const useCase = new IngressWithdrawal(deps);
   expect(useCase.execute(defaultReq)).rejects.toThrow();

@@ -1,5 +1,4 @@
 const knexFactory = require('knex');
-const BigNumber = require('bignumber.js');
 const knexConfig = require('./knexfile');
 const msToMySQLFormat = require('./msToMySQLFormat');
 const OrderRepo = require('./OrderRepo');
@@ -28,7 +27,7 @@ describe('add', () => {
   let order;
   let newOrderID;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     order = new Order({
       traderID: 'trader123',
       sourceID: 'source123',
@@ -39,16 +38,12 @@ describe('add', () => {
       time: 1550000000000,
       quantity: 123.12345678,
       price: 1123.12345678,
-      fee: {
-        quantity: 1.12345678,
-        asset: 'USDT',
-      },
     });
 
     newOrderID = await orderRepo.add(order);
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await knex(tableName).truncate();
   });
 
@@ -125,12 +120,7 @@ describe('add', () => {
     expect(savedOrder.quantityUnused).toBe(order.quantity);
   });
 
-  it('calls portfolioRepo incr for asset when buy order', async () => {
-    await knex(tableName).truncate();
-    portfolioRepo.incr.mockReset();
-    order.side = 'buy';
-    await orderRepo.add(order);
-
+  it('calls portfolioRepo incr with correct params', async () => {
     expect(portfolioRepo.incr).toHaveBeenCalledWith({
       traderID: order.traderID,
       exchangeID: order.exchangeID,
@@ -138,61 +128,7 @@ describe('add', () => {
       time: order.time,
       quantity: order.quantity,
     });
-  });
-
-  it('calls portfolioRepo decr for asset when sell order', async () => {
-    await knex(tableName).truncate();
-    portfolioRepo.decr.mockReset();
-    order.side = 'sell';
-    await orderRepo.add(order);
-
-    expect(portfolioRepo.decr).toHaveBeenCalledWith({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.asset,
-      time: order.time,
-      quantity: order.quantity,
-    });
-  });
-
-  it('calls portfolioRepo decr for quote asset when buy order', async () => {
-    await knex(tableName).truncate();
-    portfolioRepo.decr.mockReset();
-    order.side = 'buy';
-    await orderRepo.add(order);
-
-    expect(portfolioRepo.decr).toHaveBeenCalledWith({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.quoteAsset,
-      time: order.time,
-      quantity: new BigNumber(order.quantity).times(order.price).toNumber(),
-    });
-  });
-
-  it('calls portfolioRepo incr for quote asset when sell order', async () => {
-    await knex(tableName).truncate();
-    portfolioRepo.incr.mockReset();
-    order.side = 'sell';
-    await orderRepo.add(order);
-
-    expect(portfolioRepo.incr).toHaveBeenCalledWith({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.quoteAsset,
-      time: order.time,
-      quantity: new BigNumber(order.quantity).times(order.price).toNumber(),
-    });
-  });
-
-  it('calls portfolioRepo decr for fee asset', async () => {
-    expect(portfolioRepo.decr).toHaveBeenCalledWith({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.fee.asset,
-      time: order.time,
-      quantity: order.fee.quantity,
-    });
+    expect(portfolioRepo.incr).toHaveBeenCalledTimes(1);
   });
 
   it('prevents duplicates of trader + exchange + source', async () => {
