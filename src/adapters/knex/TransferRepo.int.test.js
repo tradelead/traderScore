@@ -8,15 +8,7 @@ const Withdrawal = require('../../core/models/Withdrawal');
 const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
 
-const portfolioRepo = {
-  incr: jest.fn(),
-  decr: jest.fn(),
-};
-
-const portfolioRepoFactory = {
-  create: () => portfolioRepo,
-};
-const transferRepo = new TransferRepo({ knexConn: knex, portfolioRepoFactory });
+const transferRepo = new TransferRepo({ knexConn: knex });
 const tableName = 'transfers';
 
 afterAll(async () => {
@@ -110,17 +102,6 @@ describe('addDeposit', () => {
     expect(savedDeposit.quantityUnused).toBe(deposit.quantity);
   });
 
-  it('calls portfolioRepo incr with correct params', async () => {
-    expect(portfolioRepo.incr).toHaveBeenCalledWith({
-      traderID: deposit.traderID,
-      exchangeID: deposit.exchangeID,
-      asset: deposit.asset,
-      time: deposit.time,
-      quantity: deposit.quantity,
-    });
-    expect(portfolioRepo.incr).toHaveBeenCalledTimes(1);
-  });
-
   it('prevents duplicates of trader + exchange + source', async () => {
     const similarDeposit = Object.assign({}, deposit, {
       asset: 'ETH',
@@ -208,17 +189,6 @@ describe('addWithdrawal', () => {
       .from(tableName)
       .where({ ID: newWithdrawalID });
     expect(savedWithdrawal.quantity).toBe(withdrawal.quantity);
-  });
-
-  it('calls portfolioRepo decr with correct params', async () => {
-    expect(portfolioRepo.decr).toHaveBeenCalledWith({
-      traderID: withdrawal.traderID,
-      exchangeID: withdrawal.exchangeID,
-      asset: withdrawal.asset,
-      time: withdrawal.time,
-      quantity: withdrawal.quantity,
-    });
-    expect(portfolioRepo.decr).toHaveBeenCalledTimes(1);
   });
 
   it('prevents duplicates of trader + exchange + source', async () => {

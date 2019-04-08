@@ -3,9 +3,8 @@ const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class TransferRepo {
-  constructor({ knexConn, portfolioRepoFactory }) {
+  constructor({ knexConn }) {
     this.knexConn = knexConn;
-    this.portfolioRepo = portfolioRepoFactory.create(knexConn);
     this.tableName = 'transfers';
   }
 
@@ -22,16 +21,7 @@ module.exports = class TransferRepo {
 
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
-    const incrProm = this.portfolioRepo.incr({
-      traderID: deposit.traderID,
-      exchangeID: deposit.exchangeID,
-      asset: deposit.asset,
-      time: deposit.time,
-      quantity: deposit.quantity,
-    });
-
     try {
-      await incrProm;
       return await insertProm;
     } catch (cause) {
       const info = { deposit };
@@ -52,16 +42,7 @@ module.exports = class TransferRepo {
 
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
-    const incrProm = this.portfolioRepo.decr({
-      traderID: withdrawal.traderID,
-      exchangeID: withdrawal.exchangeID,
-      asset: withdrawal.asset,
-      time: withdrawal.time,
-      quantity: withdrawal.quantity,
-    });
-
     try {
-      await incrProm;
       return await insertProm;
     } catch (cause) {
       const info = { withdrawal };
