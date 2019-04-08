@@ -1,25 +1,6 @@
 const Trade = require('../../core/models/Trade');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
-function average(data) {
-  const sum = data.reduce((acc, value) => acc + value, 0);
-
-  return sum / data.length;
-}
-
-function standardDeviation(values) {
-  const avg = average(values);
-
-  const squareDiffs = values.map((value) => {
-    const diff = value - avg;
-    return diff * diff;
-  });
-
-  const avgSquareDiff = average(squareDiffs);
-
-  return Math.sqrt(avgSquareDiff);
-}
-
 module.exports = class TradeRepo {
   constructor({
     knexConn,
@@ -89,73 +70,9 @@ module.exports = class TradeRepo {
       exitPrice: trade.exit.price,
     };
 
-    const markUsedProm = this.markSourceUsed({
-      traderID: trade.traderID,
-      exchangeID: trade.exchangeID,
-      sourceID: trade.entry.sourceID,
-      sourceType: trade.entry.sourceType,
-      quantity: trade.quantity,
-    });
-
     const [ID] = await this.knexConn.insert(dbObj, ['ID']).into(this.tableName);
-    await markUsedProm;
 
     return ID;
-  }
-
-  async markSourceUsed({
-    traderID,
-    exchangeID,
-    sourceID,
-    sourceType,
-    quantity,
-  }) {
-    if (sourceType === 'order') {
-      return this.orderRepo.use({
-        traderID,
-        exchangeID,
-        sourceID,
-        quantity,
-      });
-    }
-
-    if (sourceType === 'deposit') {
-      return this.transferRepo.use({
-        type: 'deposit',
-        traderID,
-        exchangeID,
-        sourceID,
-        quantity,
-      });
-    }
-
-    throw new Error('cannot mark source used because source type unknown');
-  }
-
-  async getRecentDailyTradeChangeStdDev(traderID, exitTime) {
-    const trades = await this.getTrades({
-      traderID,
-      endTime: exitTime,
-      limit: this.numRecentTrades,
-    });
-    const dailyScores = trades.map((trade) => {
-      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
-      return trade.score / days;
-    });
-    return standardDeviation(dailyScores);
-  }
-
-  async getRecentDailyTradeChangeMean(traderID, exitTime) {
-    const trades = await this.getTrades({
-      traderID,
-      endTime: exitTime,
-      limit: this.numRecentTrades,
-    });
-    const dailyScores = trades.map((trade) => {
-      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
-      return trade.score / days;
-    });
-    return average(dailyScores);
   }
 
   static dbRowToTrade(row) {
