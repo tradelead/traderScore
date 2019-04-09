@@ -10,6 +10,7 @@ module.exports = class ScoreRepo {
     this.redis = redis;
     this.unitOfWork = unitOfWork;
     this.tableName = 'scores';
+    this.initRedisCommands();
   }
 
   async getTopTraders({ period, limit }) {
@@ -105,6 +106,11 @@ module.exports = class ScoreRepo {
 
       this.rollbackListener(() => {
         // rollback redis score
+        console.log('rollback redis', {
+          traderID,
+          period,
+          score: curScore,
+        });
         this.updateRedisScore({
           traderID,
           period,
@@ -175,6 +181,22 @@ module.exports = class ScoreRepo {
   static getRedisList(period) {
     const p = period || 'global';
     return `scores-${p}`;
+  }
+
+  initRedisCommands() {
+    // define lua command
+    // 1. gets current score
+    // 2. update score
+    // 3. subtract old score from new score and return
+    const luaScript = `
+      local pastScore = redis.zscore(KEYS[1], ARGV[2])
+      redis.zadd(KEYS[1], ARGV[1], ARGV[2])
+    `;
+
+    this.redis.defineCommand('zaddgetdiff', {
+      numberOfKeys: 1,
+      lua: luaScript,
+    });
   }
 
   rollbackListener(listener) {
