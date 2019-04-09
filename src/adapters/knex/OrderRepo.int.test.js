@@ -38,6 +38,10 @@ describe('add', () => {
       time: 1550000000000,
       quantity: 123.12345678,
       price: 1123.12345678,
+      fee: {
+        asset: 'ABC',
+        quantity: 1.12345678,
+      },
     });
 
     newOrderID = await orderRepo.add(order);
@@ -102,6 +106,22 @@ describe('add', () => {
       .from(tableName)
       .where({ ID: newOrderID });
     expect(savedOrder.price).toBe(order.price);
+  });
+
+  it('saves fee quantity', async () => {
+    const [savedOrder] = await knex
+      .select('feeQuantity')
+      .from(tableName)
+      .where({ ID: newOrderID });
+    expect(savedOrder.feeQuantity).toBe(order.fee.quantity);
+  });
+
+  it('saves fee asset', async () => {
+    const [savedOrder] = await knex
+      .select('feeAsset')
+      .from(tableName)
+      .where({ ID: newOrderID });
+    expect(savedOrder.feeAsset).toBe(order.fee.asset);
   });
 
   it('saves quantity', async () => {

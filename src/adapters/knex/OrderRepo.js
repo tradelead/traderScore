@@ -19,6 +19,11 @@ module.exports = class PortfolioRepo {
     const obj = Object.assign({}, order);
     obj.time = msToMySQLFormat(obj.time);
     obj.quantityUnused = obj.quantity;
+    delete obj.fee;
+    if (order.fee) {
+      obj.feeAsset = order.fee.asset;
+      obj.feeQuantity = order.fee.quantity;
+    }
 
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
