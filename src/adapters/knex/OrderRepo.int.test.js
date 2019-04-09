@@ -140,17 +140,6 @@ describe('add', () => {
     expect(savedOrder.quantityUnused).toBe(order.quantity);
   });
 
-  it('calls portfolioRepo incr with correct params', async () => {
-    expect(portfolioRepo.incr).toHaveBeenCalledWith({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.asset,
-      time: order.time,
-      quantity: order.quantity,
-    });
-    expect(portfolioRepo.incr).toHaveBeenCalledTimes(1);
-  });
-
   it('prevents duplicates of trader + exchange + source', async () => {
     const similarOrder = Object.assign({}, order, {
       asset: 'ETH',

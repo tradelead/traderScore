@@ -3,9 +3,8 @@ const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class PortfolioRepo {
-  constructor({ knexConn, portfolioRepoFactory }) {
+  constructor({ knexConn }) {
     this.knexConn = knexConn;
-    this.portfolioRepo = portfolioRepoFactory.create(knexConn);
     this.tableName = 'orders';
   }
 
@@ -16,28 +15,17 @@ module.exports = class PortfolioRepo {
       throw new VError({ name: 'BadRequest', cause, info }, 'error adding order');
     }
 
-    const obj = Object.assign({}, order);
-    obj.time = msToMySQLFormat(obj.time);
-    obj.quantityUnused = obj.quantity;
-    delete obj.fee;
-    if (order.fee) {
-      obj.feeAsset = order.fee.asset;
-      obj.feeQuantity = order.fee.quantity;
-    }
-
-    const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
-
-    const incrProm = this.portfolioRepo.incr({
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: order.asset,
-      time: order.time,
-      quantity: order.quantity,
-    });
-
     try {
-      await incrProm;
-      return await insertProm;
+      const obj = Object.assign({}, order);
+      obj.time = msToMySQLFormat(obj.time);
+      obj.quantityUnused = obj.quantity;
+      delete obj.fee;
+      if (order.fee) {
+        obj.feeAsset = order.fee.asset;
+        obj.feeQuantity = order.fee.quantity;
+      }
+
+      return this.knexConn.insert(obj, ['ID']).into(this.tableName);
     } catch (cause) {
       const info = { order };
       throw new VError({ cause, info }, 'error adding order');
