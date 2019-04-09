@@ -36,14 +36,18 @@ beforeEach(() => {
       isRootAsset: sinon.stub(),
       findMarketQuoteAsset: sinon.stub(),
     },
-    transferRepo: {
+    transferService: {
       findDeposits: sinon.stub(),
       findWithdrawals: sinon.stub(),
       use: sinon.stub(),
     },
-    orderRepo: {
+    orderService: {
       getFilledOrders: sinon.stub(),
       use: sinon.stub(),
+    },
+    entryService: {
+      getEntries: sinon.stub(),
+      getEntryQuoteAsset: sinon.stub(),
     },
     events: new EventEmitter(),
     getEntriesLimitPerFetch: 3,
@@ -66,10 +70,8 @@ describe('newTrade', () => {
     sinon.stub(service, 'getRecentDailyTradeChangeMean');
     service.getRecentDailyTradeChangeMean.resolves(0.03);
 
-    sinon.stub(service, 'getEntries');
-
     const entryTime = Date.now() - 10000;
-    service.getEntries.resolves([
+    deps.entryService.getEntries.resolves([
       {
         time: entryTime,
         quantity: defaultReq.exitQuantity - 5,
@@ -88,8 +90,7 @@ describe('newTrade', () => {
       },
     ]);
 
-    sinon.stub(service, 'getEntryQuoteAsset');
-    service.getEntryQuoteAsset.resolves('ABC');
+    deps.entryService.getEntryQuoteAsset.resolves('ABC');
 
     sinon.stub(service, 'addTrade');
   });
@@ -98,7 +99,7 @@ describe('newTrade', () => {
     it('calls getEntries once', async () => {
       await service.newTrade(defaultReq);
 
-      sinon.assert.callCount(service.getEntries, 1);
+      sinon.assert.callCount(deps.entryService.getEntries, 1);
     });
 
     it('passes exitQuantity to getEntries qty', async () => {
@@ -107,7 +108,7 @@ describe('newTrade', () => {
 
       await service.newTrade(req);
 
-      sinon.assert.calledWithMatch(service.getEntries, { qty: 0.2 });
+      sinon.assert.calledWithMatch(deps.entryService.getEntries, { qty: 0.2 });
     });
 
     it('passes exitTime to getEntries', async () => {
@@ -115,25 +116,28 @@ describe('newTrade', () => {
 
       await service.newTrade(req);
 
-      sinon.assert.calledWithMatch(service.getEntries, { exitTime: req.exitTime });
+      sinon.assert.calledWithMatch(deps.entryService.getEntries, { exitTime: req.exitTime });
     });
 
     it('passes traderID to getEntries', async () => {
       await service.newTrade(defaultReq);
 
-      sinon.assert.calledWithMatch(service.getEntries, { traderID: defaultReq.traderID });
+      sinon.assert.calledWithMatch(deps.entryService.getEntries, { traderID: defaultReq.traderID });
     });
 
     it('passes exchangeID to getEntries', async () => {
       await service.newTrade(defaultReq);
 
-      sinon.assert.calledWithMatch(service.getEntries, { exchangeID: defaultReq.exchangeID });
+      sinon.assert.calledWithMatch(
+        deps.entryService.getEntries,
+        { exchangeID: defaultReq.exchangeID },
+      );
     });
 
     it('passes asset to getEntries', async () => {
       await service.newTrade(defaultReq);
 
-      sinon.assert.calledWithMatch(service.getEntries, { asset: defaultReq.asset });
+      sinon.assert.calledWithMatch(deps.entryService.getEntries, { asset: defaultReq.asset });
     });
   });
 
@@ -160,16 +164,26 @@ describe('newTrade', () => {
     const { exchangeID, asset } = defaultReq;
 
     beforeEach(async () => {
-      service.getEntries.resolves(entries);
+      deps.entryService.getEntries.resolves(entries);
       await service.newTrade(defaultReq);
     });
 
     it('called with first entry, exchangeID, & asset', () => {
-      sinon.assert.calledWithMatch(service.getEntryQuoteAsset, entries[0], exchangeID, asset);
+      sinon.assert.calledWithMatch(
+        deps.entryService.getEntryQuoteAsset,
+        entries[0],
+        exchangeID,
+        asset,
+      );
     });
 
     it('called with second entry, exchangeID, & asset', () => {
-      sinon.assert.calledWithMatch(service.getEntryQuoteAsset, entries[1], exchangeID, asset);
+      sinon.assert.calledWithMatch(
+        deps.entryService.getEntryQuoteAsset,
+        entries[1],
+        exchangeID,
+        asset,
+      );
     });
   });
 
@@ -188,9 +202,9 @@ describe('newTrade', () => {
         },
       },
     ];
-    service.getEntries.resolves(entries);
+    deps.entryService.getEntries.resolves(entries);
 
-    service.getEntryQuoteAsset.resolves('USDT');
+    deps.entryService.getEntryQuoteAsset.resolves('USDT');
 
     deps.exchangeService.getPrice.withArgs({
       exchangeID: defaultReq.exchangeID,
@@ -205,7 +219,7 @@ describe('newTrade', () => {
   });
 
   test('exit price returns price from exchangeService.getPrice', async () => {
-    service.getEntryQuoteAsset.resolves('USDT');
+    deps.entryService.getEntryQuoteAsset.resolves('USDT');
 
     deps.exchangeService.getPrice.withArgs({
       exchangeID: defaultReq.exchangeID,
@@ -315,303 +329,6 @@ describe('newTrade', () => {
       const req = Object.assign({}, defaultReq);
       req.exitTime = 0;
       await expect(useCase.newTrade(req)).rejects.toThrow('"Exit Time" must be greater than 0');
-    });
-  });
-});
-
-describe('getEntries', () => {
-  let service;
-  let req;
-  let orders;
-  let deposits;
-
-  beforeEach(() => {
-    deps.getEntriesLimitPerFetch = 1;
-
-    req = {
-      traderID: '123',
-      exchangeID: 'binance',
-      asset: 'ETH',
-      qty: 3.0,
-      exitTime: Date.now(),
-    };
-
-    const defaultOrder = {
-      quantity: 1,
-      unusedQty: 0.5,
-    };
-    const defaultSellOrder = Object.assign({}, defaultOrder, {
-      type: 'sell',
-      asset: 'ABC',
-      quoteAsset: req.asset,
-    });
-    const defaultBuyOrder = Object.assign({}, defaultOrder, {
-      type: 'buy',
-      asset: req.asset,
-      quoteAsset: 'USDT',
-    });
-
-    orders = [
-      Object.assign({}, defaultBuyOrder, { sourceID: '2', time: 2 }),
-      Object.assign({}, defaultSellOrder, { sourceID: '3', time: 3 }),
-    ];
-
-    let orderIndex = 0;
-    const nextOrder = () => {
-      if (orders.length - 1 < orderIndex) { return null; }
-      const order = orders[orderIndex];
-      orderIndex += 1;
-      return [order];
-    };
-
-    deps.orderRepo.getFilledOrders.callsFake(async () => nextOrder());
-
-    const defaultTransfer = {
-      quantity: 1,
-      unusedQty: 0.5,
-      asset: req.asset,
-    };
-    deposits = [
-      Object.assign({}, defaultTransfer, { sourceID: '1', time: 1 }),
-      Object.assign({}, defaultTransfer, { sourceID: '4', time: 4 }),
-      Object.assign({}, defaultTransfer, { sourceID: '5', time: 5 }),
-      Object.assign({}, defaultTransfer, { sourceID: '6', time: 6 }),
-    ];
-
-    let depositIndex = 0;
-    const nextDeposit = () => {
-      if (deposits.length - 1 < depositIndex) { return null; }
-      const deposit = deposits[depositIndex];
-      depositIndex += 1;
-      return [deposit];
-    };
-
-    deps.transferRepo.findDeposits.callsFake(async () => nextDeposit());
-
-    service = new TradeService(deps);
-  });
-
-  describe('calls getFilledOrders', () => {
-    beforeEach(async () => {
-      await service.getEntries(req);
-    });
-
-    it('calls with traderID', async () => {
-      const { traderID } = req;
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { traderID });
-    });
-
-    it('calls with exchangeID', async () => {
-      const { exchangeID } = req;
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { exchangeID });
-    });
-
-    it('calls with asset', async () => {
-      const { asset } = req;
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { asset });
-    });
-
-    it('calls with exitTime', async () => {
-      const endTime = req.exitTime;
-      expect(deps.orderRepo.getFilledOrders.calledWithMatch({ endTime })).toBe(true);
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { sort: 'desc' });
-    });
-
-    it('calls with sort desc', async () => {
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { sort: 'desc' });
-    });
-
-    it('calls with unused', async () => {
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { unused: true });
-    });
-
-    test('first call has startTime of zero', async () => {
-      const startTime = 0;
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders, { startTime });
-    });
-
-    it('calls startTime with time of last item', async () => {
-      const { time } = orders[0];
-      sinon.assert.calledWithMatch(deps.orderRepo.getFilledOrders.secondCall, { startTime: time });
-    });
-  });
-
-  describe('calls findDeposits', () => {
-    beforeEach(async () => {
-      await service.getEntries(req);
-    });
-
-    it('calls with traderID', async () => {
-      const { traderID } = req;
-      deps.transferRepo.findDeposits.calledWithMatch({ traderID });
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { traderID });
-    });
-
-    it('calls with exchangeID', async () => {
-      const { exchangeID } = req;
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { exchangeID });
-    });
-
-    it('calls with asset', async () => {
-      const { asset } = req;
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { asset });
-    });
-
-    it('calls with exitTime', async () => {
-      const endTime = req.exitTime;
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { endTime });
-    });
-
-    it('calls with sort desc', async () => {
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { sort: 'desc' });
-    });
-
-    it('calls with unused', async () => {
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { unused: true });
-    });
-
-    test('first call has startTime of zero', async () => {
-      const startTime = 0;
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits, { startTime });
-    });
-
-    it('calls startTime with time of last item', async () => {
-      const { time } = deposits[0];
-      sinon.assert.calledWithMatch(deps.transferRepo.findDeposits.secondCall, { startTime: time });
-    });
-  });
-
-  it('returns entries (orders, deposits) in order when multi-fetch needed', async () => {
-    const entries = await service.getEntries(req);
-
-    const entrySourceIDs = entries.map(entry => entry.sourceID);
-    expect(entrySourceIDs).toEqual(['1', '2', '3', '4', '5', '6']);
-  });
-
-  it('loops until sufficient entries quantity then stops', async () => {
-    req.qty = 1.5;
-    const entries = await service.getEntries(req);
-
-    const entrySourceIDs = entries.map(entry => entry.sourceID);
-    expect(entrySourceIDs).toEqual(['1', '2', '3']);
-  });
-
-  it('returns exact requested qty when entries unused qty sum is greater', async () => {
-    req.qty = 1.3;
-    const entries = await service.getEntries(req);
-
-    const entrySum = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-    expect(entrySum).toEqual(1.3);
-  });
-
-  it('floating point precision', async () => {
-    req.qty = 0.2;
-    deposits[0].unusedQty = 0.1;
-    orders[0].unusedQty = 0.2;
-    const entries = await service.getEntries(req);
-
-    const entrySum = entries.reduce((sum, entry) => sum + entry.quantity, 0);
-    expect(entrySum).toEqual(0.2);
-  });
-
-  it('throws error when insufficient entry quantity sum', async () => {
-    req.qty = 4;
-    expect(service.getEntries(req)).rejects.toThrow('Insufficient entries');
-  });
-});
-
-describe('getEntryQuoteAsset', () => {
-  let service;
-  let entry;
-  let exchangeID;
-  let asset;
-
-  beforeEach(() => {
-    entry = {
-      sourceType: 'order',
-      source: {
-        side: 'buy',
-        quoteAsset: 'USDT',
-      },
-    };
-    exchangeID = 'binance';
-    asset = 'ETH';
-
-    deps.exchangeService.findMarketQuoteAsset.resolves('ABC');
-    service = new TradeService(deps);
-  });
-
-  it('equals asset if root asset', async () => {
-    deps.exchangeService.isRootAsset
-      .withArgs(exchangeID, asset)
-      .resolves(true);
-
-    const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
-
-    expect(quoteAsset).toBe(asset);
-  });
-
-  it('equals entry\'s order quoteAsset if entry is buy order', async () => {
-    entry = {
-      sourceType: 'order',
-      source: {
-        side: 'buy',
-        quoteAsset: 'USDT',
-      },
-    };
-
-    const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
-
-    expect(quoteAsset).toBe('USDT');
-  });
-
-  it('equals exchangeService.findMarketQuoteAsset if entry is sell order', async () => {
-    entry = {
-      sourceType: 'order',
-      source: {
-        side: 'sell',
-      },
-    };
-
-    const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
-
-    expect(quoteAsset).toBe('ABC');
-  });
-
-  it('equals exchangeService.findMarketQuoteAsset if entry is deposit', async () => {
-    entry = {
-      sourceType: 'deposit',
-    };
-
-    const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
-
-    expect(quoteAsset).toBe('ABC');
-  });
-
-  it('throws error on unknown entry type', async () => {
-    entry = {
-      sourceType: 'unknownType',
-    };
-
-    expect(service.getEntryQuoteAsset(entry, exchangeID, asset)).rejects.toThrow('Unexpected entry type');
-  });
-
-  describe('calls exchangeService.findMarketQuoteAsset', () => {
-    beforeEach(async () => {
-      entry = { sourceType: 'deposit' };
-      await service.getEntryQuoteAsset(entry, exchangeID, asset);
-    });
-
-    it('is called with exchange', async () => {
-      sinon.assert.calledWithMatch(deps.exchangeService.findMarketQuoteAsset, { exchangeID });
-    });
-
-    it('is called with asset', async () => {
-      sinon.assert.calledWithMatch(deps.exchangeService.findMarketQuoteAsset, { asset });
-    });
-
-    it('is called with preferredQuoteAsset of BTC', async () => {
-      sinon.assert.calledWithMatch(deps.exchangeService.findMarketQuoteAsset, { preferredQuoteAsset: 'BTC' });
     });
   });
 });
@@ -789,7 +506,7 @@ describe('addTrade', () => {
 
     await service.addTrade(trade);
 
-    sinon.assert.calledWith(deps.orderRepo.use, {
+    sinon.assert.calledWith(deps.orderService.use, {
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,
       sourceID: trade.sourceID,
@@ -802,7 +519,7 @@ describe('addTrade', () => {
 
     await service.addTrade(trade);
 
-    sinon.assert.calledWith(deps.transferRepo.use, {
+    sinon.assert.calledWith(deps.transferService.use, {
       type: 'deposit',
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,

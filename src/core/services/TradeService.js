@@ -22,9 +22,9 @@ module.exports = class TradeService {
     portfolioService,
     exchangeService,
     scoreService,
-    getEntriesLimitPerFetch,
-    orderRepo,
-    transferRepo,
+    orderService,
+    transferService,
+    entryService,
     events,
   }) {
     this.tradeRepo = tradeRepo;
@@ -32,9 +32,9 @@ module.exports = class TradeService {
     this.portfolioService = portfolioService;
     this.exchangeService = exchangeService;
     this.scoreService = scoreService;
-    this.orderRepo = orderRepo;
-    this.transferRepo = transferRepo;
-    this.getEntriesLimitPerFetch = getEntriesLimitPerFetch;
+    this.orderService = orderService;
+    this.transferService = transferService;
+    this.entryService = entryService;
     this.events = events;
   }
 
@@ -48,7 +48,7 @@ module.exports = class TradeService {
       throw err;
     }
 
-    const entries = await this.getEntries({
+    const entries = await this.entryService.getEntries({
       traderID: value.traderID,
       exchangeID: value.exchangeID,
       asset: value.asset,
@@ -75,132 +75,6 @@ module.exports = class TradeService {
     return trades;
   }
 
-  async getEntries({
-    traderID,
-    exchangeID,
-    asset,
-    qty,
-    exitTime,
-  }) {
-    let entriesQty = 0;
-    let firstRun = true;
-    let ordersLeft = 0;
-    let depositsLeft = 0;
-    let entriesAcc = [];
-    const entriesQueue = [];
-
-    const itemsLeft = () => ordersLeft + depositsLeft > 0;
-
-    do {
-      const ordersLeftOld = ordersLeft;
-      const depositsLeftOld = depositsLeft;
-      let item;
-
-      if (entriesQueue.length > 0) {
-        item = entriesQueue.pop();
-
-        const entriesQtyNum = new BigNumber(entriesQty);
-        entriesQty = entriesQtyNum.plus(item.unusedQty).toNumber();
-        entriesAcc.push(item);
-
-        if (item.type === 'order') {
-          ordersLeft -= 1;
-        } else if (item.type === 'deposit') {
-          depositsLeft -= 1;
-        }
-      }
-
-      let type;
-      const startTime = (item && item.time > 0 ? item.time : 0);
-      const endTime = exitTime;
-      const limit = this.getEntriesLimitPerFetch;
-      const addToQueue = (additionalItems) => {
-        if (additionalItems && additionalItems.length > 0) {
-          const typedAdditionalItems = additionalItems.map(a => Object.assign({}, a, { type }));
-          entriesQueue.push(...typedAdditionalItems);
-          const descSort = (a, b) => b.time - a.time;
-          entriesQueue.sort(descSort);
-        }
-      };
-
-      if ((ordersLeft === 0 && ordersLeftOld !== 0) || firstRun) {
-        type = 'order';
-        const additionalItems = await this.orderRepo.getFilledOrders({
-          traderID,
-          exchangeID,
-          asset,
-          limit,
-          startTime,
-          endTime,
-          sort: 'desc',
-          unused: true,
-        });
-        ordersLeft = (additionalItems ? additionalItems.length : 0);
-        addToQueue(additionalItems);
-      }
-
-      if ((depositsLeft === 0 && depositsLeftOld !== 0) || firstRun) {
-        type = 'deposit';
-        const additionalItems = await this.transferRepo.findDeposits({
-          traderID,
-          exchangeID,
-          asset,
-          limit,
-          startTime,
-          endTime,
-          sort: 'desc',
-          unused: true,
-        });
-        depositsLeft = (additionalItems ? additionalItems.length : 0);
-        addToQueue(additionalItems);
-      }
-
-      firstRun = false;
-    } while (entriesQty < qty && itemsLeft());
-
-    if (entriesQty < qty) {
-      throw new Error('Insufficient entries');
-    }
-
-    entriesAcc = entriesAcc.map(item => Object.assign({}, item, {
-      sourceID: item.sourceID,
-      sourceType: item.type,
-      quantity: item.unusedQty,
-      time: item.time,
-      source: item,
-    }));
-
-    const entriesQtyNum = new BigNumber(entriesQty);
-    const outboundQtyNum = entriesQtyNum.minus(qty);
-    const lastEntryQtyNum = new BigNumber(entriesAcc[entriesAcc.length - 1].quantity);
-    entriesAcc[entriesAcc.length - 1].quantity = lastEntryQtyNum.minus(outboundQtyNum).toNumber();
-
-    return entriesAcc;
-  }
-
-  async getEntryQuoteAsset(entry, exchangeID, asset) {
-    if (this.exchangeService.isRootAsset(exchangeID, asset)) {
-      return asset;
-    }
-
-    if (entry.sourceType === 'order' && entry.source.side === 'buy') {
-      return entry.source.quoteAsset;
-    }
-
-    if (
-      (entry.sourceType === 'order' && entry.source.side === 'sell')
-      || entry.sourceType === 'deposit'
-    ) {
-      return this.exchangeService.findMarketQuoteAsset({
-        exchangeID,
-        asset,
-        preferredQuoteAsset: 'BTC',
-      });
-    }
-
-    throw new Error('Unexpected entry type');
-  }
-
   async createTradeFromEntry({ req, entry }) {
     const newTradeReq = Object.assign({}, req);
 
@@ -211,7 +85,9 @@ module.exports = class TradeService {
       sourceType: entry.sourceType,
     };
     newTradeReq.exit = { time: req.exitTime };
-    newTradeReq.quoteAsset = await this.getEntryQuoteAsset(entry, req.exchangeID, req.asset);
+
+    newTradeReq.quoteAsset = await this.entryService
+      .getEntryQuoteAsset(entry, req.exchangeID, req.asset);
 
     newTradeReq.entry.price = await this.exchangeService.getPrice({
       exchangeID: req.exchangeID,
@@ -364,7 +240,7 @@ module.exports = class TradeService {
     quantity,
   }) {
     if (sourceType === 'order') {
-      return this.orderRepo.use({
+      return this.orderService.use({
         traderID,
         exchangeID,
         sourceID,
@@ -373,7 +249,7 @@ module.exports = class TradeService {
     }
 
     if (sourceType === 'deposit') {
-      return this.transferRepo.use({
+      return this.transferService.use({
         type: 'deposit',
         traderID,
         exchangeID,

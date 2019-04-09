@@ -11,7 +11,7 @@ module.exports = class IngressTraderExchange {
     ingressFilledOrder,
     ingressWithdrawal,
     exchangeService,
-    orderRepo,
+    orderService,
     transferService,
     exchangeActivityLimitPerFetch,
     exchangeIngressRepo,
@@ -21,7 +21,7 @@ module.exports = class IngressTraderExchange {
     this.ingressFilledOrder = ingressFilledOrder;
     this.ingressWithdrawal = ingressWithdrawal;
     this.exchangeService = exchangeService;
-    this.orderRepo = orderRepo;
+    this.orderService = orderService;
     this.transferService = transferService;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.exchangeIngressRepo = exchangeIngressRepo;
@@ -41,7 +41,7 @@ module.exports = class IngressTraderExchange {
 
     const { traderID, exchangeID } = value;
 
-    const lastOrders = await this.orderRepo.find({
+    const lastOrders = await this.orderService.getFilledOrders({
       traderID,
       exchangeID,
       limit: 1,

@@ -25,7 +25,7 @@ beforeEach(() => {
   };
 
   unitOfWork = {
-    orderRepo: {
+    orderService: {
       add: sinon.stub(),
     },
     tradeService: {
@@ -39,7 +39,7 @@ beforeEach(() => {
   };
 
   unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
-  unitOfWork.orderRepo.add.resolves('order123');
+  unitOfWork.orderService.add.resolves('order123');
 });
 
 describe('execute', () => {
@@ -65,8 +65,8 @@ describe('execute', () => {
     return expect(unitOfWorkCompletedCalled).toBe(true);
   });
 
-  it('rollback unit of work on orderRepo throws error', async () => {
-    unitOfWork.orderRepo.add.rejects();
+  it('rollback unit of work on orderService throws error', async () => {
+    unitOfWork.orderService.add.rejects();
 
     const useCase = new IngressFilledOrder(deps);
     try {
@@ -77,8 +77,8 @@ describe('execute', () => {
     return expect(unitOfWorkRollbackCalled).toBe(true);
   });
 
-  it('throws error on orderRepo throws error', async () => {
-    unitOfWork.orderRepo.add.rejects();
+  it('throws error on orderService throws error', async () => {
+    unitOfWork.orderService.add.rejects();
 
     const useCase = new IngressFilledOrder(deps);
     return expect(useCase.execute(defaultReq)).rejects.toThrow();
@@ -89,7 +89,7 @@ describe('execute', () => {
     await useCase.execute(defaultReq);
 
     const order = new Order(defaultReq);
-    const called = unitOfWork.orderRepo.add.calledWith(order);
+    const called = unitOfWork.orderService.add.calledWith(order);
 
     expect(called).toBe(true);
   });

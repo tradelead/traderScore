@@ -59,8 +59,8 @@ beforeEach(() => {
       getSuccessfulDeposits: sinon.stub(),
       getSuccessfulWithdrawals: sinon.stub(),
     },
-    orderRepo: {
-      find: sinon.stub(),
+    orderService: {
+      getFilledOrders: sinon.stub(),
     },
     transferService: {
       findDeposits: sinon.stub(),
@@ -166,7 +166,7 @@ describe('exchangeService.getFilledOrders', () => {
 
   test('first call has startTime of recent order', async () => {
     const order = uniqueObjectWithTimeAndSourceIDEqual(123, defaultOrder);
-    deps.orderRepo.find
+    deps.orderService.getFilledOrders
       .withArgs({
         traderID: defaultReq.traderID,
         exchangeID: defaultReq.exchangeID,
@@ -184,7 +184,7 @@ describe('exchangeService.getFilledOrders', () => {
   });
 
   test('first call has zero startTime if no recent order', async () => {
-    deps.orderRepo.find.resolves(null);
+    deps.orderService.getFilledOrders.resolves(null);
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 

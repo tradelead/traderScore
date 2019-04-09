@@ -35,7 +35,7 @@ module.exports = class IngressFilledOrder {
     }
 
     this.unitOfWork = await this.unitOfWorkFactory.create();
-    this.orderRepo = this.unitOfWork.orderRepo;
+    this.orderService = this.unitOfWork.orderService;
     this.tradeService = this.unitOfWork.tradeService;
 
     if (!value.past) {
@@ -50,7 +50,7 @@ module.exports = class IngressFilledOrder {
 
     const order = new Order(value);
 
-    const saveOrder = this.orderRepo.add(order);
+    const saveOrder = this.orderService.add(order);
 
     let tradeAsset = '';
     let tradeQty = 0;
