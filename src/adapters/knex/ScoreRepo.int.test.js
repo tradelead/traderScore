@@ -107,32 +107,51 @@ describe('updateTraderScore', () => {
     expect(score).toBe('23');
   });
 
-  it('rollback redis score when previously didn\'t exist', async () => {
-    unitOfWork.emit('rollback');
+  describe('redis rollback', () => {
+    it('rollback when previously didn\'t exist', async () => {
+      unitOfWork.emit('rollback');
 
-    const score = await redis.zscore('scores-day', 'trader1');
-    expect(score).toBe('0');
-  });
-
-  it('rollback redis to last score', async () => {
-    const unitOfWork2 = new EventEmitter();
-
-    const dupScoreRepo = new ScoreRepo({
-      knexConn: knex,
-      redis,
-      unitOfWork2,
+      const score = await redis.zscore('scores-day', 'trader1');
+      expect(score).toBe('0');
     });
 
-    const req = Object.assign({}, defaultReq, {
-      time: 1530000000000,
-      score: 23,
+    it('rollback to last score', async () => {
+      const unitOfWork2 = new EventEmitter();
+
+      const dupScoreRepo = new ScoreRepo({
+        knexConn: knex,
+        redis,
+        unitOfWork: unitOfWork2,
+      });
+
+      const req = Object.assign({}, defaultReq, {
+        time: 1541000000000,
+        score: 23,
+      });
+      await dupScoreRepo.updateTraderScore(req);
+
+      unitOfWork2.emit('rollback');
+
+      const score = await redis.zscore('scores-day', 'trader1');
+      expect(score).toBe('123.456789');
     });
-    await dupScoreRepo.updateTraderScore(req);
 
-    unitOfWork2.emit('rollback');
+    it('rollback decrements score when additional score changes made since execution', async () => {
+      const unitOfWork1 = new EventEmitter();
+      const dup1ScoreRepo = new ScoreRepo({ knexConn: knex, redis, unitOfWork: unitOfWork1 });
+      const req1 = Object.assign({}, defaultReq, { time: 1541000000000, score: 100.456789 });
+      await dup1ScoreRepo.updateTraderScore(req1);
 
-    const score = await redis.zscore('scores-day', 'trader1');
-    expect(score).toBe('123.456789');
+      const unitOfWork2 = new EventEmitter();
+      const dup2ScoreRepo = new ScoreRepo({ knexConn: knex, redis, unitOfWork: unitOfWork2 });
+      const req2 = Object.assign({}, defaultReq, { time: 1542000000000, score: 234 });
+      await dup2ScoreRepo.updateTraderScore(req2);
+
+      unitOfWork1.emit('rollback');
+
+      const score = await redis.zscore('scores-day', 'trader1');
+      expect(score).toBe('211');
+    });
   });
 });
 
