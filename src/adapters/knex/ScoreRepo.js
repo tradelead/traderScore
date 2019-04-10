@@ -3,10 +3,12 @@ const msToMySQLFormat = require('./msToMySQLFormat');
 module.exports = class ScoreRepo {
   constructor({
     knexConn,
+    knex,
     redis,
     unitOfWork,
   }) {
     this.knexConn = knexConn;
+    this.knex = knex;
     this.redis = redis;
     this.unitOfWork = unitOfWork;
     this.tableName = 'scores';
@@ -103,13 +105,20 @@ module.exports = class ScoreRepo {
       await this.updateRedisScore({ traderID, period, score });
 
       this.rollbackListener(async () => {
-        const latest = await this.latestMySQLScore({ traderID, period });
-        // rollback redis score
-        this.updateRedisScore({
-          traderID,
-          period,
-          score: latest,
-        });
+        try {
+          // knexConn was terminated by transaction, use knex connection pool.
+          this.knexConn = this.knex;
+          const latest = await this.latestMySQLScore({ traderID, period });
+
+          // rollback redis score
+          await this.updateRedisScore({
+            traderID,
+            period,
+            score: latest,
+          });
+        } catch (e) {
+          console.error('error rolling back redis', e);
+        }
       });
     }
   }
@@ -161,7 +170,11 @@ module.exports = class ScoreRepo {
       .orderBy('time', 'desc')
       .limit(1);
 
-    return latest.score;
+    if (latest) {
+      return latest.score;
+    }
+
+    return 0;
   }
 
   async isLatestMySQLScore({ ID, traderID, period }) {

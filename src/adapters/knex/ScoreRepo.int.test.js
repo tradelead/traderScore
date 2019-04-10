@@ -5,9 +5,11 @@ const Redis = require('ioredis');
 const knexConfig = require('./knexfile');
 const msToMySQLFormat = require('./msToMySQLFormat');
 const ScoreRepo = require('./ScoreRepo');
+const KnexTrxFactory = require('./KnexTrxFactory');
 
 const env = (process.env.NODE_ENV ? process.env.NODE_ENV : 'development');
 const knex = knexFactory(knexConfig[env]);
+const knexTrxFactory = new KnexTrxFactory({ knex });
 const tableName = 'scores';
 
 const redis = new Redis(process.env.REDIS_URL);
@@ -15,32 +17,32 @@ const redis = new Redis(process.env.REDIS_URL);
 let unitOfWork;
 let scoreRepo;
 let knexTrx;
+let rolledBack;
 
-beforeEach(async () => new Promise(async (resolve) => {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+beforeEach(async () => {
   unitOfWork = new EventEmitter();
 
   await knex(tableName).truncate();
 
-  knex
-    .transaction((trx) => {
-      knexTrx = trx;
-      scoreRepo = new ScoreRepo({
-        knexConn: knexTrx,
-        redis,
-        unitOfWork,
-      });
-      resolve();
-    })
-    .then((res) => {
-      console.log(res);
-    })
-    .catch((error) => {
-      console.log(error);
-    });
-}));
+  knexTrx = await knexTrxFactory.create();
+  rolledBack = false;
+
+  scoreRepo = new ScoreRepo({
+    knexConn: knexTrx,
+    knex,
+    redis,
+    unitOfWork,
+  });
+});
 
 afterEach(async () => {
-  await knexTrx.commit();
+  if (!rolledBack) {
+    await knexTrx.commit();
+  }
 });
 
 afterAll(async () => {
@@ -52,6 +54,18 @@ afterAll(async () => redis.flushdb());
 
 afterAll(async () => knex(tableName).truncate());
 
+it('main: rolls back', async () => {
+  await scoreRepo.updateTraderScore({
+    traderID: 'trader1',
+    score: 123.456789,
+    period: 'day',
+    time: 1540000000000,
+  });
+  await scoreRepo.knexConn.rollback();
+  rolledBack = true;
+  expect(await knex('scores').select()).toHaveLength(0);
+});
+
 describe('updateTraderScore', () => {
   const defaultReq = {
     traderID: 'trader1',
@@ -60,14 +74,8 @@ describe('updateTraderScore', () => {
     time: 1540000000000,
   };
 
-  beforeEach(async () => {
-    await knexTrx.from(tableName).truncate();
-    await redis.flushdb();
-    console.log('BEFORE MAIN: updateTraderScore');
-    await scoreRepo.updateTraderScore(defaultReq);
-  });
-
   it('saves to mysql table', async () => {
+    await scoreRepo.updateTraderScore(defaultReq);
     const [scoreDb] = await knexTrx.from(tableName).select([
       'traderID',
       'period',
@@ -82,7 +90,6 @@ describe('updateTraderScore', () => {
   });
 
   it('saves to mysql table with global period when period empty', async () => {
-    await knexTrx.from(tableName).truncate();
     const req = Object.assign({}, defaultReq, {
       time: 1550000000000,
       period: undefined,
@@ -107,11 +114,14 @@ describe('updateTraderScore', () => {
   });
 
   it('saves to redis', async () => {
+    await scoreRepo.updateTraderScore(defaultReq);
     const score = await redis.zscore('scores-day', 'trader1');
     expect(score).toBe('123.456789');
   });
 
   it('does not save to redis when not latest score', async () => {
+    await scoreRepo.updateTraderScore(defaultReq);
+
     const req = Object.assign({}, defaultReq, {
       time: 1530000000000,
       score: 23,
@@ -123,6 +133,8 @@ describe('updateTraderScore', () => {
   });
 
   it('updates redis score and does not create new', async () => {
+    await scoreRepo.updateTraderScore(defaultReq);
+
     const req = Object.assign({}, defaultReq, {
       time: 1550000000000,
       score: 23,
@@ -135,24 +147,38 @@ describe('updateTraderScore', () => {
     expect(score).toBe('23');
   });
 
+  it('rolls back', async () => {
+    await scoreRepo.updateTraderScore(defaultReq);
+
+    await scoreRepo.knexConn.rollback();
+    rolledBack = true;
+    expect(await knex(tableName).select()).toHaveLength(0);
+  });
+
   describe('redis rollback', () => {
     it('rollback when previously didn\'t exist', async () => {
-      knexTrx.rollback();
+      await scoreRepo.updateTraderScore(defaultReq);
+
+      await scoreRepo.knexConn.rollback();
       unitOfWork.emit('rollback');
+
+      await sleep(100);
 
       const score = await redis.zscore('scores-day', 'trader1');
       expect(score).toBe('0');
     });
 
     it('rollback decrements score when additional score changes made since execution', async () => {
-      console.log('rollback decrements score when additional score changes made since execution');
-      await knexTrx.commit();
+      await scoreRepo.updateTraderScore(defaultReq);
+      await scoreRepo.knexConn.commit();
+
       await knex.transaction(async (trx1) => {
         const unitOfWork1 = new EventEmitter();
         const dup1ScoreRepo = new ScoreRepo({
           knexConn: trx1,
+          knex,
           redis,
-          unitOfWork1,
+          unitOfWork: unitOfWork1,
         });
         const req1 = Object.assign({}, defaultReq, { time: 1541000000000, score: 100.456789 });
         await dup1ScoreRepo.updateTraderScore(req1);
@@ -161,22 +187,29 @@ describe('updateTraderScore', () => {
         unitOfWork1.emit('complete');
       });
 
-      await knex.transaction(async (trx2) => {
-        const unitOfWork2 = new EventEmitter();
-        const dup2ScoreRepo = new ScoreRepo({
-          knexConn: trx2,
-          redis,
-          unitOfWork2,
-        });
-        const req2 = Object.assign({}, defaultReq, { time: 1542000000000, score: 234 });
-        await dup2ScoreRepo.updateTraderScore(req2);
+      try {
+        await knex.transaction(async (trx2) => {
+          const unitOfWork2 = new EventEmitter();
+          const dup2ScoreRepo = new ScoreRepo({
+            knexConn: trx2,
+            knex,
+            redis,
+            unitOfWork: unitOfWork2,
+          });
+          const req2 = Object.assign({}, defaultReq, { time: 1542000000000, score: 234 });
+          await dup2ScoreRepo.updateTraderScore(req2);
 
-        await trx2.rollback();
-        unitOfWork2.emit('rollback');
-      });
+          await dup2ScoreRepo.knexConn.rollback(new Error('test'));
+          unitOfWork2.emit('rollback');
+        });
+      } catch (e) {}
+
+      await sleep(100);
 
       const score = await redis.zscore('scores-day', 'trader1');
       expect(score).toBe('100.456789');
+
+      expect(await knex(tableName).select()).toHaveLength(2);
     });
   });
 });
