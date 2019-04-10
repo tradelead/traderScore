@@ -10,7 +10,6 @@ module.exports = class ScoreRepo {
     this.redis = redis;
     this.unitOfWork = unitOfWork;
     this.tableName = 'scores';
-    this.initRedisCommands();
   }
 
   async getTopTraders({ period, limit }) {
@@ -101,20 +100,15 @@ module.exports = class ScoreRepo {
     });
 
     if (await this.isLatestMySQLScore({ ID, traderID, period })) {
-      const curScore = await this.getRedisScore({ traderID, period });
       await this.updateRedisScore({ traderID, period, score });
 
-      this.rollbackListener(() => {
+      this.rollbackListener(async () => {
+        const latest = await this.latestMySQLScore({ traderID, period });
         // rollback redis score
-        console.log('rollback redis', {
-          traderID,
-          period,
-          score: curScore,
-        });
         this.updateRedisScore({
           traderID,
           period,
-          score: curScore,
+          score: latest,
         });
       });
     }
@@ -156,6 +150,20 @@ module.exports = class ScoreRepo {
     return ID;
   }
 
+  async latestMySQLScore({ traderID, period }) {
+    const [latest] = await this.knexConn
+      .select('score')
+      .from(this.tableName)
+      .where({
+        traderID,
+        period: period || 'global',
+      })
+      .orderBy('time', 'desc')
+      .limit(1);
+
+    return latest.score;
+  }
+
   async isLatestMySQLScore({ ID, traderID, period }) {
     const [latest] = await this.knexConn
       .select('ID')
@@ -174,10 +182,6 @@ module.exports = class ScoreRepo {
     return this.redis.zadd(ScoreRepo.getRedisList(period), score || 0, traderID);
   }
 
-  async getRedisScore({ traderID, period }) {
-    return this.redis.zscore(ScoreRepo.getRedisList(period), traderID);
-  }
-
   static getRedisList(period) {
     const p = period || 'global';
     return `scores-${p}`;
@@ -189,8 +193,14 @@ module.exports = class ScoreRepo {
     // 2. update score
     // 3. subtract old score from new score and return
     const luaScript = `
-      local pastScore = redis.zscore(KEYS[1], ARGV[2])
-      redis.zadd(KEYS[1], ARGV[1], ARGV[2])
+      local precisionMultiplier = math.pow(10, 8)
+      local pastScore = redis.call("zscore", KEYS[1], ARGV[2])
+      redis.call("zadd", KEYS[1], ARGV[1], ARGV[2])
+      if pastScore == false then
+        return ARGV[1] * precisionMultiplier
+      else
+        return (ARGV[1] * precisionMultiplier) - (pastScore * precisionMultiplier)
+      end
     `;
 
     this.redis.defineCommand('zaddgetdiff', {

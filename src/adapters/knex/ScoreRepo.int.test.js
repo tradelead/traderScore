@@ -11,18 +11,45 @@ const knex = knexFactory(knexConfig[env]);
 const tableName = 'scores';
 
 const redis = new Redis(process.env.REDIS_URL);
-const unitOfWork = new EventEmitter();
 
-const scoreRepo = new ScoreRepo({
-  knexConn: knex,
-  redis,
-  unitOfWork,
+let unitOfWork;
+let scoreRepo;
+let knexTrx;
+
+beforeEach(async () => new Promise(async (resolve) => {
+  unitOfWork = new EventEmitter();
+
+  await knex(tableName).truncate();
+
+  knex
+    .transaction((trx) => {
+      knexTrx = trx;
+      scoreRepo = new ScoreRepo({
+        knexConn: knexTrx,
+        redis,
+        unitOfWork,
+      });
+      resolve();
+    })
+    .then((res) => {
+      console.log(res);
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+}));
+
+afterEach(async () => {
+  await knexTrx.commit();
+});
+
+afterAll(async () => {
+  await knex.destroy();
 });
 
 beforeAll(async () => redis.flushdb());
 afterAll(async () => redis.flushdb());
 
-beforeAll(async () => knex(tableName).truncate());
 afterAll(async () => knex(tableName).truncate());
 
 describe('updateTraderScore', () => {
@@ -34,13 +61,14 @@ describe('updateTraderScore', () => {
   };
 
   beforeEach(async () => {
-    await knex(tableName).truncate();
+    await knexTrx.from(tableName).truncate();
     await redis.flushdb();
+    console.log('BEFORE MAIN: updateTraderScore');
     await scoreRepo.updateTraderScore(defaultReq);
   });
 
   it('saves to mysql table', async () => {
-    const [scoreDb] = await knex(tableName).select([
+    const [scoreDb] = await knexTrx.from(tableName).select([
       'traderID',
       'period',
       'score',
@@ -54,7 +82,7 @@ describe('updateTraderScore', () => {
   });
 
   it('saves to mysql table with global period when period empty', async () => {
-    await knex(tableName).truncate();
+    await knexTrx.from(tableName).truncate();
     const req = Object.assign({}, defaultReq, {
       time: 1550000000000,
       period: undefined,
@@ -62,7 +90,7 @@ describe('updateTraderScore', () => {
     });
     await scoreRepo.updateTraderScore(req);
 
-    const [scoreDb] = await knex(tableName)
+    const [scoreDb] = await knexTrx.from(tableName)
       .select([
         'traderID',
         'period',
@@ -109,48 +137,46 @@ describe('updateTraderScore', () => {
 
   describe('redis rollback', () => {
     it('rollback when previously didn\'t exist', async () => {
+      knexTrx.rollback();
       unitOfWork.emit('rollback');
 
       const score = await redis.zscore('scores-day', 'trader1');
       expect(score).toBe('0');
     });
 
-    it('rollback to last score', async () => {
-      const unitOfWork2 = new EventEmitter();
-
-      const dupScoreRepo = new ScoreRepo({
-        knexConn: knex,
-        redis,
-        unitOfWork: unitOfWork2,
-      });
-
-      const req = Object.assign({}, defaultReq, {
-        time: 1541000000000,
-        score: 23,
-      });
-      await dupScoreRepo.updateTraderScore(req);
-
-      unitOfWork2.emit('rollback');
-
-      const score = await redis.zscore('scores-day', 'trader1');
-      expect(score).toBe('123.456789');
-    });
-
     it('rollback decrements score when additional score changes made since execution', async () => {
-      const unitOfWork1 = new EventEmitter();
-      const dup1ScoreRepo = new ScoreRepo({ knexConn: knex, redis, unitOfWork: unitOfWork1 });
-      const req1 = Object.assign({}, defaultReq, { time: 1541000000000, score: 100.456789 });
-      await dup1ScoreRepo.updateTraderScore(req1);
+      console.log('rollback decrements score when additional score changes made since execution');
+      await knexTrx.commit();
+      await knex.transaction(async (trx1) => {
+        const unitOfWork1 = new EventEmitter();
+        const dup1ScoreRepo = new ScoreRepo({
+          knexConn: trx1,
+          redis,
+          unitOfWork1,
+        });
+        const req1 = Object.assign({}, defaultReq, { time: 1541000000000, score: 100.456789 });
+        await dup1ScoreRepo.updateTraderScore(req1);
 
-      const unitOfWork2 = new EventEmitter();
-      const dup2ScoreRepo = new ScoreRepo({ knexConn: knex, redis, unitOfWork: unitOfWork2 });
-      const req2 = Object.assign({}, defaultReq, { time: 1542000000000, score: 234 });
-      await dup2ScoreRepo.updateTraderScore(req2);
+        await trx1.commit();
+        unitOfWork1.emit('complete');
+      });
 
-      unitOfWork1.emit('rollback');
+      await knex.transaction(async (trx2) => {
+        const unitOfWork2 = new EventEmitter();
+        const dup2ScoreRepo = new ScoreRepo({
+          knexConn: trx2,
+          redis,
+          unitOfWork2,
+        });
+        const req2 = Object.assign({}, defaultReq, { time: 1542000000000, score: 234 });
+        await dup2ScoreRepo.updateTraderScore(req2);
+
+        await trx2.rollback();
+        unitOfWork2.emit('rollback');
+      });
 
       const score = await redis.zscore('scores-day', 'trader1');
-      expect(score).toBe('211');
+      expect(score).toBe('100.456789');
     });
   });
 });
@@ -184,11 +210,11 @@ describe('bulkUpdateTraderScore', () => {
   ];
 
   it('works', async () => {
-    await knex(tableName).truncate();
+    await knexTrx.from(tableName).truncate();
     await redis.flushdb();
     await scoreRepo.bulkUpdateTraderScore(defaultReq);
 
-    const scores = await knex(tableName).select([
+    const scores = await knexTrx.from(tableName).select([
       'traderID',
       'period',
       'score',
@@ -243,8 +269,8 @@ describe('getTraderRanks', () => {
 
 describe('getTradersScoreHistories', () => {
   beforeEach(async () => {
-    await knex(tableName).truncate();
-    await knex(tableName).insert([
+    await knexTrx.from(tableName).truncate();
+    await knexTrx.from(tableName).insert([
       {
         traderID: 'trader1',
         score: 1,
