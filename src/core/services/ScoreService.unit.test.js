@@ -20,13 +20,13 @@ beforeEach(() => {
       updateTraderScore: sinon.stub(),
       bulkUpdateTraderScore: sinon.stub(),
     },
-    traderScoreMutexFactory: {
+    traderScoreMutex: {
       obtain: sinon.stub(),
     },
   };
 
   mutex = { release: sinon.stub() };
-  deps.traderScoreMutexFactory.obtain.resolves(mutex);
+  deps.traderScoreMutex.obtain.resolves(mutex);
 });
 
 describe('incrementScore', () => {
@@ -162,7 +162,7 @@ describe('incrementScore', () => {
     await service.incrementScore(req);
 
     const { traderID, period } = req;
-    sinon.assert.calledWithExactly(deps.traderScoreMutexFactory.obtain, { traderID, period });
+    sinon.assert.calledWithExactly(deps.traderScoreMutex.obtain, { traderID, period });
   });
 
   it('releases mutex', async () => {
@@ -379,7 +379,7 @@ describe('calculateScore', () => {
   it('obtains mutex with traderID and period', async () => {
     await service.calculateScore(req);
     const { traderID, period } = req;
-    sinon.assert.calledWithExactly(deps.traderScoreMutexFactory.obtain, { traderID, period });
+    sinon.assert.calledWithExactly(deps.traderScoreMutex.obtain, { traderID, period });
   });
 
   it('releases mutex', async () => {

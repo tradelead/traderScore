@@ -6,13 +6,13 @@ module.exports = class ScoreService {
   constructor({
     traderScorePeriodConfig,
     traderScoreRepo,
-    traderScoreMutexFactory,
+    traderScoreMutex,
     tradeRepo,
     tradeFetchLimit,
   }) {
     this.traderScorePeriodConfig = traderScorePeriodConfig;
     this.traderScoreRepo = traderScoreRepo;
-    this.traderScoreMutexFactory = traderScoreMutexFactory;
+    this.traderScoreMutex = traderScoreMutex;
     this.tradeRepo = tradeRepo;
     this.tradeFetchLimit = tradeFetchLimit;
   }
@@ -23,7 +23,7 @@ module.exports = class ScoreService {
     score,
     time,
   }) {
-    const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
+    const mutex = await this.traderScoreMutex.obtain({ traderID, period });
 
     try {
       const curScores = await this.traderScoreRepo.getTradersScoreHistories([{
@@ -109,7 +109,7 @@ module.exports = class ScoreService {
       periodConfig = { duration: 0 };
     }
 
-    const mutex = await this.traderScoreMutexFactory.obtain({ traderID, period });
+    const mutex = await this.traderScoreMutex.obtain({ traderID, period });
 
     try {
       const startTime = Date.now() - periodConfig.duration;
