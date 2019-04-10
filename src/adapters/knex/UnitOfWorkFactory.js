@@ -17,6 +17,7 @@ module.exports = class KnexUnitOfWorkFactory {
     await Promise.all(Object.keys(this.serviceFactories).map(async (key) => {
       uow[key] = await this.serviceFactories[key].create({
         knexConn: trx,
+        knex: this.knex,
         events: uowEvents,
         unitOfWork: uow,
       });
