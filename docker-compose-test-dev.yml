@@ -14,6 +14,7 @@ services:
       DATABASE_POOL_MIN: 1
       DATABASE_POOL_MAX: 10
       REDIS_URL: redis://redis_db:6379
+      SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
     depends_on:
       - mysql
       - redis_db

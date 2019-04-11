@@ -1,6 +1,6 @@
 const msToMySQLFormat = require('./msToMySQLFormat');
 
-module.exports = class {
+module.exports = class ScoreUpdateScheduleRepo {
   constructor({ knexConn }) {
     this.knexConn = knexConn;
     this.tableName = 'scoreUpdateSchedule';

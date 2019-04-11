@@ -1,6 +1,6 @@
 const BigNumber = require('bignumber.js');
 
-module.exports = class {
+module.exports = class OrderService {
   constructor({ orderRepo, portfolioService }) {
     this.orderRepo = orderRepo;
     this.portfolioService = portfolioService;

@@ -1,4 +1,4 @@
-module.exports = class {
+module.exports = class TransferService {
   constructor({ transferRepo, portfolioService }) {
     this.transferRepo = transferRepo;
     this.portfolioService = portfolioService;

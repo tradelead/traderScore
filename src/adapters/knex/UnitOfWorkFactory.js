@@ -3,10 +3,10 @@ const KnexUnitOfWork = require('./UnitOfWork');
 const KnexTrxFactory = require('./KnexTrxFactory');
 
 module.exports = class KnexUnitOfWorkFactory {
-  constructor(knex, serviceFactories, eventEmitter) {
+  constructor({ knex, serviceFactories, events }) {
     this.knex = knex;
     this.serviceFactories = serviceFactories;
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = events;
   }
 
   async create() {

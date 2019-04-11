@@ -1,4 +1,4 @@
-module.exports = class {
+module.exports = class TraderScoreMutex {
   constructor({ mutex }) {
     this.mutex = mutex;
   }

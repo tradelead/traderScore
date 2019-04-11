@@ -1,4 +1,4 @@
-module.exports = class {
+module.exports = class KnexTrxFactory {
   constructor({ knex }) {
     this.knex = knex;
   }

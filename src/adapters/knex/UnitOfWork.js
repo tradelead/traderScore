@@ -1,9 +1,8 @@
 const { EventEmitter } = require('events');
 
 module.exports = class KnexUnitOfWork extends EventEmitter {
-  constructor(knex, trx) {
+  constructor(trx) {
     super();
-    this.knex = knex;
     this.trx = trx;
   }
 

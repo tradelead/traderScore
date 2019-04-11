@@ -1,6 +1,6 @@
 const BigNumber = require('bignumber.js');
 
-module.exports = class {
+module.exports = class EntryService {
   constructor({
     orderService,
     transferService,

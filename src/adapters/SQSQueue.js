@@ -2,7 +2,7 @@ const AWS = require('aws-sdk');
 
 const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
 
-module.exports = class {
+module.exports = class SQSQueue {
   constructor({ queueUrl }) {
     this.queueUrl = queueUrl;
   }
