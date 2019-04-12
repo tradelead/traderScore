@@ -88,7 +88,8 @@ module.exports = class TransferRepo {
       query.andWhere('quantityUnused', '>', 0);
     }
 
-    return query;
+    const items = await query;
+    return items.map(item => Object.assign({}, item, { time: new Date(item.time).getTime() }));
   }
 
   async findWithdrawals({
@@ -124,7 +125,8 @@ module.exports = class TransferRepo {
       query.andWhere('time', '<=', msToMySQLFormat(endTime));
     }
 
-    return query;
+    const items = await query;
+    return items.map(item => Object.assign({}, item, { time: new Date(item.time).getTime() }));
   }
 
   async use({

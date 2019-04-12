@@ -38,7 +38,7 @@ module.exports = class EntryService {
         item = entriesQueue.pop();
 
         const entriesQtyNum = new BigNumber(entriesQty);
-        entriesQty = entriesQtyNum.plus(item.unusedQty).toNumber();
+        entriesQty = entriesQtyNum.plus(item.quantityUnused).toNumber();
         entriesAcc.push(item);
 
         if (item.type === 'order') {
@@ -103,7 +103,7 @@ module.exports = class EntryService {
     entriesAcc = entriesAcc.map(item => Object.assign({}, item, {
       sourceID: item.sourceID,
       sourceType: item.type,
-      quantity: item.unusedQty,
+      quantity: item.quantityUnused,
       time: item.time,
       source: item,
     }));
@@ -111,6 +111,7 @@ module.exports = class EntryService {
     const entriesQtyNum = new BigNumber(entriesQty);
     const outboundQtyNum = entriesQtyNum.minus(qty);
     const lastEntryQtyNum = new BigNumber(entriesAcc[entriesAcc.length - 1].quantity);
+
     entriesAcc[entriesAcc.length - 1].quantity = lastEntryQtyNum.minus(outboundQtyNum).toNumber();
 
     return entriesAcc;

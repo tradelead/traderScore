@@ -26,7 +26,6 @@ module.exports = class IngressTraderExchange {
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.exchangeIngressRepo = exchangeIngressRepo;
     this.scoreService = scoreService;
-    this.descSort = (a, b) => b.time - a.time;
   }
 
   async execute(req) {
@@ -174,7 +173,8 @@ module.exports = class IngressTraderExchange {
       activityNew = addToActivity({ activity: activityNew, additionalItems: items, type });
     }
 
-    activityNew.sort(this.descSort);
+
+    activityNew.sort((a, b) => b.time - a.time);
 
     await this.ingressActivity({
       activity: activityNew,

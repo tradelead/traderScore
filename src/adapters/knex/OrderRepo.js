@@ -69,7 +69,9 @@ module.exports = class PortfolioRepo {
       query.andWhere('quantityUnused', '>', 0);
     }
 
-    return query;
+    const items = await query;
+
+    return items.map(item => Object.assign({}, item, { time: new Date(item.time).getTime() }));
   }
 
   async use({

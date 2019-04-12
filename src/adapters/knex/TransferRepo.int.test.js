@@ -344,6 +344,12 @@ describe('findDeposits', () => {
     expect(uniqueTypes).toEqual(expect.arrayContaining(['deposit']));
     expect(uniqueTypes).toHaveLength(1);
   });
+
+  test('returns ms time', async () => {
+    const deposits = await transferRepo.findDeposits({});
+
+    expect(deposits[0].time).toEqual(1000);
+  });
 });
 
 describe('findWithdrawals', () => {
@@ -479,6 +485,12 @@ describe('findWithdrawals', () => {
     const uniqueTypes = Array.from(new Set(types));
     expect(uniqueTypes).toEqual(expect.arrayContaining(['withdrawal']));
     expect(uniqueTypes).toHaveLength(1);
+  });
+
+  test('returns ms time', async () => {
+    const withdrawals = await transferRepo.findWithdrawals({});
+
+    expect(withdrawals[0].time).toEqual(1000);
   });
 });
 

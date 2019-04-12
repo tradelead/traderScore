@@ -45,7 +45,7 @@ describe('getEntries', () => {
 
     const defaultOrder = {
       quantity: 1,
-      unusedQty: 0.5,
+      quantityUnused: 0.5,
     };
     const defaultSellOrder = Object.assign({}, defaultOrder, {
       type: 'sell',
@@ -75,7 +75,7 @@ describe('getEntries', () => {
 
     const defaultTransfer = {
       quantity: 1,
-      unusedQty: 0.5,
+      quantityUnused: 0.5,
       asset: req.asset,
     };
     deposits = [
@@ -219,8 +219,8 @@ describe('getEntries', () => {
 
   it('floating point precision', async () => {
     req.qty = 0.2;
-    deposits[0].unusedQty = 0.1;
-    orders[0].unusedQty = 0.2;
+    deposits[0].quantityUnused = 0.1;
+    orders[0].quantityUnused = 0.2;
     const entries = await service.getEntries(req);
 
     const entrySum = entries.reduce((sum, entry) => sum + entry.quantity, 0);

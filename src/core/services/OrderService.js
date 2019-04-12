@@ -23,7 +23,8 @@ module.exports = class OrderService {
     } else if (order.side === 'sell') {
       assetPortfolioFn = this.portfolioService.decr.bind(this.portfolioService);
     }
-    const assetProm = assetPortfolioFn({
+
+    await assetPortfolioFn({
       traderID: order.traderID,
       exchangeID: order.exchangeID,
       asset: order.asset,
@@ -37,7 +38,8 @@ module.exports = class OrderService {
     } else if (order.side === 'sell') {
       quoteAssetPortfolioFn = this.portfolioService.incr.bind(this.portfolioService);
     }
-    const quoteAssetProm = quoteAssetPortfolioFn({
+
+    await quoteAssetPortfolioFn({
       traderID: order.traderID,
       exchangeID: order.exchangeID,
       asset: order.quoteAsset,
@@ -45,9 +47,8 @@ module.exports = class OrderService {
       quantity: new BigNumber(order.quantity).times(order.price).toNumber(),
     });
 
-    let feeAssetProm;
     if (order.fee && order.fee.quantity > 0 && order.fee.asset) {
-      feeAssetProm = this.portfolioService.decr({
+      await this.portfolioService.decr({
         traderID: order.traderID,
         exchangeID: order.exchangeID,
         asset: order.fee.asset,
@@ -55,10 +56,6 @@ module.exports = class OrderService {
         quantity: order.fee.quantity,
       });
     }
-
-    await assetProm;
-    await quoteAssetProm;
-    await feeAssetProm;
   }
 
   getFilledOrders(...req) {

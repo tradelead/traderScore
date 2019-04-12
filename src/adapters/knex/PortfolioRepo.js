@@ -1,3 +1,4 @@
+const VError = require('verror');
 const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
@@ -24,6 +25,22 @@ module.exports = class PortfolioRepo {
     await this.insertItem({ traderExchangeAssetID, time }, (item) => {
       const lastQty = (item && item.quantity ? item.quantity : 0);
       const qtyNum = new BigNumber(quantity);
+
+      // (async () => {
+      //   console.log('incr', {
+      //     traderExchangeAssetID,
+      //     newQty: qtyNum.plus(lastQty).toNumber(),
+      //     lastQty,
+      //     traderID,
+      //     exchangeID,
+      //     asset,
+      //     quantity,
+      //     time,
+      //     item,
+      //     db: await this.knexConn(this.tableName).select(),
+      //   });
+      // })();
+
       return qtyNum.plus(lastQty).toNumber();
     });
   }
@@ -38,7 +55,14 @@ module.exports = class PortfolioRepo {
     const assetObj = await this.getAsset({ traderID, exchangeID, asset });
 
     if (!assetObj) {
-      throw new Error('cannot decr: trader doesn\'t own asset');
+      const info = {
+        traderID,
+        exchangeID,
+        asset,
+        quantity,
+        time,
+      };
+      throw new VError({ info }, 'cannot decr: trader doesn\'t own asset');
     }
 
     const traderExchangeAssetID = assetObj.ID;
@@ -48,8 +72,24 @@ module.exports = class PortfolioRepo {
       const lastQtyNum = new BigNumber(lastQty);
       const newQty = lastQtyNum.minus(quantity).toNumber();
       if (newQty < 0) {
+        console.error('cannot decr: insufficient asset quantity');
         throw new Error('cannot decr: insufficient asset quantity');
       }
+
+      // (async () => {
+      //   console.log('desc', {
+      //     traderExchangeAssetID,
+      //     newQty,
+      //     lastQty,
+      //     traderID,
+      //     exchangeID,
+      //     asset,
+      //     quantity,
+      //     time,
+      //     item,
+      //     db: await this.knexConn(this.tableName).select(),
+      //   });
+      // })();
 
       return newQty;
     });
@@ -138,7 +178,7 @@ module.exports = class PortfolioRepo {
 
   async insertItem({ traderExchangeAssetID, time }, quantityModifier) {
     const [lastItem] = await this.knexConn
-      .select('quantity')
+      .select('ID', 'quantity')
       .from(this.tableName)
       .where({ traderExchangeAssetID })
       .andWhere('time', '<=', msToMySQLFormat(time))

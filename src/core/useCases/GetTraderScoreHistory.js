@@ -2,8 +2,8 @@ const Joi = require('joi');
 
 const requestSchema = Joi.object().keys({
   traderID: Joi.string().required().label('Trader ID'),
-  startTime: Joi.number().greater(0).required().label('Start Time'),
-  endTime: Joi.number().greater(0).required().label('End Time'),
+  startTime: Joi.number().greater(0).label('Start Time'),
+  endTime: Joi.number().greater(0).label('End Time'),
 });
 
 module.exports = class GetTraderScoreHistory {

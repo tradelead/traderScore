@@ -294,6 +294,12 @@ describe('getFilledOrders', () => {
     expect(sourceIDs).toEqual(expect.arrayContaining(['source3']));
     expect(sourceIDs).toHaveLength(1);
   });
+
+  test('returns ms time', async () => {
+    const orders = await orderRepo.getFilledOrders({});
+
+    expect(orders[0].time).toEqual(1000);
+  });
 });
 
 describe('use', () => {

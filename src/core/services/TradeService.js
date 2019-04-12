@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
+const VError = require('verror');
 const Trade = require('../models/Trade');
 const averageArr = require('../utilities/averageArr');
 const standardDeviationArr = require('../utilities/standardDeviationArr');
@@ -43,9 +44,7 @@ module.exports = class TradeService {
 
     if (error != null) {
       const humanErr = error.details.map(detail => detail.message).join(', ');
-      const err = new Error(humanErr);
-      err.name = 'BadRequest';
-      throw err;
+      throw new VError({ name: 'BadRequest', info: req }, humanErr);
     }
 
     const entries = await this.entryService.getEntries({
@@ -137,6 +136,20 @@ module.exports = class TradeService {
       tradeChange,
       entryTime: entry.time,
       exitTime: exit.time,
+    });
+
+    console.log({
+      traderID,
+      exchangeID,
+      sourceID,
+      sourceType,
+      asset,
+      quoteAsset,
+      quantity,
+      entry,
+      exit,
+      weight,
+      score,
     });
 
     return new Trade({

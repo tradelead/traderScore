@@ -448,13 +448,13 @@ describe('ingress activity', () => {
     deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
 
     // exchange data
-    const order1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultOrder);
+    const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
     const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
     const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
     deps.exchangeService.getFilledOrders.resolves([]);
     deps.exchangeService.getFilledOrders.onCall(0).resolves([order1, order2, order3]);
 
-    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultDeposit);
+    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
     deps.exchangeService.getSuccessfulDeposits.resolves([]);
@@ -486,7 +486,7 @@ describe('ingress activity', () => {
     deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
 
     // exchange data
-    const order1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultOrder);
+    const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
     const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
     const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
     deps.exchangeService.getFilledOrders.resolves([]);
@@ -500,7 +500,7 @@ describe('ingress activity', () => {
     const order7 = uniqueObjectWithTimeAndSourceIDEqual(16, defaultOrder);
     deps.exchangeService.getFilledOrders.onCall(2).resolves([order7]);
 
-    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultDeposit);
+    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
     const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
     deps.exchangeService.getSuccessfulDeposits.resolves([]);
