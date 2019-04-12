@@ -65,6 +65,7 @@ module.exports = class IngressTraderExchange {
     const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
     const withdrawalsStartTime = (hasWithdraws ? lastWithdraws[0].time : 0);
 
+    console.time(`activity ingressed ${traderID}-${exchangeID}`);
     await this.ingressActivity({
       firstRun: true,
       activity: [],
@@ -77,13 +78,15 @@ module.exports = class IngressTraderExchange {
       traderID,
       exchangeID,
     });
-    console.log('activity ingressed');
+    console.timeEnd(`activity ingressed ${traderID}-${exchangeID}`);
 
+    console.time(`calculated trader scores ${traderID}-${exchangeID}`);
     await this.scoreService.calculateScores({ traderID });
-    console.log('calculated trader scores');
+    console.timeEnd(`calculated trader scores ${traderID}-${exchangeID}`);
 
+    console.time(`exchange ingress marked complete ${traderID}-${exchangeID}`);
     await this.exchangeIngressRepo.markComplete({ traderID, exchangeID });
-    console.log('exchange ingress marked complete');
+    console.timeEnd(`exchange ingress marked complete ${traderID}-${exchangeID}`);
 
     return true;
   }
@@ -111,6 +114,7 @@ module.exports = class IngressTraderExchange {
     const item = activity.pop();
 
     if (item) {
+      console.time(`${item.type} activity ingressed ${traderID}-${exchangeID}-${item.sourceID}`);
       if (item.type === 'order') {
         await this.ingressFilledOrder.execute(item);
         ordersLeftNew -= 1;
@@ -121,6 +125,7 @@ module.exports = class IngressTraderExchange {
         await this.ingressWithdrawal.execute(item);
         withdrawalsLeftNew -= 1;
       }
+      console.timeEnd(`${item.type} activity ingressed ${traderID}-${exchangeID}-${item.sourceID}`);
     }
 
     const addToActivity = ({ activity: curActivity, additionalItems, type }) => {

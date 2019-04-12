@@ -394,7 +394,13 @@ describe('calculateScore', () => {
     return expect(service.calculateScore(req)).rejects.toThrow('Period doesn\'t exist');
   });
 
-  it('success when calculating global score', async () => {
+  it('calls getTrades with startTime of 0 when calculating global score', async () => {
+    delete req.period;
+    await service.calculateScore(req);
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, { startTime: 0 });
+  });
+
+  it('calculates global score', async () => {
     delete req.period;
     return expect(service.calculateScore(req)).resolves.toBeDefined();
   });

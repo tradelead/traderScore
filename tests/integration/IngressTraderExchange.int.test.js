@@ -92,8 +92,8 @@ beforeEach(async () => {
 
   mockExchangeService.isRootAsset.mockImplementation(async ({ symbol }) => symbol === 'USDT');
 
-  mockExchangeService.getPrice.mockImplementation(async () => 123);
-  mockExchangeService.getBTCValue.mockImplementation(async () => 0.345);
+  mockExchangeService.getPrice.mockImplementation(async () => 1);
+  mockExchangeService.getBTCValue.mockImplementation(async () => 1);
 
   mockExchangeService.findMarketQuoteAsset
     .mockImplementation(async ({ asset, preferredQuoteAsset }) => {
@@ -105,10 +105,12 @@ beforeEach(async () => {
 });
 
 test('trader\'s first exchange ingress', async () => {
+  console.time('ingressTraderExchange');
   await app.useCases.ingressTraderExchange({
     traderID: 'trader1',
     exchangeID: 'binance',
   });
+  console.timeEnd('ingressTraderExchange');
 
   const mockExchangeService = new ExchangeService({});
   console.log(mockExchangeService.getPrice.calls);

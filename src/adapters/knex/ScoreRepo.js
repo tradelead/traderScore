@@ -93,6 +93,13 @@ module.exports = class ScoreRepo {
     period,
     time,
   }) {
+    console.log('updateTraderScore', {
+      traderID,
+      score,
+      period,
+      time,
+    });
+
     // add/update score
     const ID = await this.addOrUpdateMySQLScore({
       traderID,

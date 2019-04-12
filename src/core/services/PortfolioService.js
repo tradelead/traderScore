@@ -33,14 +33,19 @@ module.exports = class PortfolioService {
     return btcValues.reduce(sum, 0);
   }
 
-  incr(args) {
+  async incr(args) {
     console.log('incr', args);
-    return this.portfolioRepo.incr(args);
+    console.time(`incr ${args.traderID}-${args.exchangeID}-${args.asset}`);
+    const res = await this.portfolioRepo.incr(args);
+    console.timeEnd(`incr ${args.traderID}-${args.exchangeID}-${args.asset}`);
+    return res;
   }
 
-  decr(args) {
-    console.log('decr', args);
-    return this.portfolioRepo.decr(args);
+  async decr(args) {
+    console.time(`decr ${args.traderID}-${args.exchangeID}-${args.asset}`);
+    const res = await this.portfolioRepo.decr(args);
+    console.timeEnd(`decr ${args.traderID}-${args.exchangeID}-${args.asset}`);
+    return res;
   }
 
   snapshot(args) {
