@@ -135,14 +135,6 @@ describe('execute', () => {
       expect(newTradeArg).toHaveProperty('exchangeID', defaultReq.exchangeID);
     });
 
-    test('called with order asset', async () => {
-      const useCase = new IngressFilledOrder(deps);
-      await useCase.execute(defaultReq);
-
-      const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
-      expect(newTradeArg).toHaveProperty('asset', defaultReq.asset);
-    });
-
     test('called with incrementScores as inverse of past', async () => {
       const useCase = new IngressFilledOrder(deps);
       const req = Object.assign({}, defaultReq);
@@ -166,7 +158,7 @@ describe('execute', () => {
       expect(newTradeArg).toHaveProperty('exitQuantity', 0.02);
     });
 
-    test('buy order called with asset as trade asset', async () => {
+    test('buy order called with quote asset as trade asset', async () => {
       const useCase = new IngressFilledOrder(deps);
       const req = Object.assign({}, defaultReq);
       req.side = 'buy';
@@ -174,7 +166,7 @@ describe('execute', () => {
       await useCase.execute(req);
 
       const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
-      expect(newTradeArg).toHaveProperty('asset', req.asset);
+      expect(newTradeArg).toHaveProperty('asset', req.quoteAsset);
     });
 
     test('sell order called with order quantity as exitQuantity', async () => {
@@ -189,7 +181,7 @@ describe('execute', () => {
       expect(newTradeArg).toHaveProperty('exitQuantity', 0.2);
     });
 
-    test('sell order called with quote asset as trade asset', async () => {
+    test('sell order called with asset as trade asset', async () => {
       const useCase = new IngressFilledOrder(deps);
       const req = Object.assign({}, defaultReq);
       req.side = 'sell';
@@ -197,7 +189,7 @@ describe('execute', () => {
       await useCase.execute(req);
 
       const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
-      expect(newTradeArg).toHaveProperty('asset', req.quoteAsset);
+      expect(newTradeArg).toHaveProperty('asset', req.asset);
     });
 
     test('called with order time as exitTime', async () => {

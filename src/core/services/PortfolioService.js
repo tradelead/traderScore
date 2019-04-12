@@ -34,10 +34,12 @@ module.exports = class PortfolioService {
   }
 
   incr(args) {
+    console.log('incr', args);
     return this.portfolioRepo.incr(args);
   }
 
   decr(args) {
+    console.log('decr', args);
     return this.portfolioRepo.decr(args);
   }
 

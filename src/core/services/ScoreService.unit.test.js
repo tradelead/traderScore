@@ -325,26 +325,10 @@ describe('calculateScore', () => {
   });
 
   it('calls tradeRepo.getTrades with incrementing startTime', async () => {
-    const startTime = 123;
+    const startTime = 124;
     await service.calculateScore(req);
     sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(1), { startTime });
   });
-
-  // it('calls tradeRepo.getTrades with the same startTime from the start', async () => {
-  //   // force Date.now() to change every time it's called
-  //   const curTime = Date.now();
-  //   let nowIndex = 0;
-  //   Date.now = jest.fn(() => {
-  //     const time = curTime + nowIndex;
-  //     nowIndex += 1;
-  //     return time;
-  //   });
-  //
-  //   await service.calculateScore(req);
-  //
-  //   const { startTime } = deps.tradeRepo.getTrades.getCall(0).args[0];
-  //   sinon.assert.alwaysCalledWithMatch(deps.tradeRepo.getTrades, { startTime });
-  // });
 
   it('rejects when tradeRepo.getTrades throws error', async () => {
     deps.tradeRepo.getTrades.rejects();

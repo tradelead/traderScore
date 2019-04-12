@@ -40,6 +40,7 @@ module.exports = class TradeService {
   }
 
   async newTrade(req) {
+    console.log('newTrade', req);
     const { error, value } = schema.validate(req);
 
     if (error != null) {
@@ -102,6 +103,7 @@ module.exports = class TradeService {
       time: req.exitTime,
     });
 
+    console.log('newTradeReq', newTradeReq);
     return this.createTradeObj(newTradeReq);
   }
 
@@ -138,19 +140,19 @@ module.exports = class TradeService {
       exitTime: exit.time,
     });
 
-    console.log({
-      traderID,
-      exchangeID,
-      sourceID,
-      sourceType,
-      asset,
-      quoteAsset,
-      quantity,
-      entry,
-      exit,
-      weight,
-      score,
-    });
+    // console.log({
+    //   traderID,
+    //   exchangeID,
+    //   sourceID,
+    //   sourceType,
+    //   asset,
+    //   quoteAsset,
+    //   quantity,
+    //   entry,
+    //   exit,
+    //   weight,
+    //   score,
+    // });
 
     return new Trade({
       traderID,
@@ -224,12 +226,31 @@ module.exports = class TradeService {
     const score = inboundChange + weightedOutboundChange;
     const weightedScore = score * weight;
 
+    // console.log({
+    //   traderID,
+    //   tradeChange,
+    //   dailyChangeStdDev,
+    //   dailyChangeMean,
+    //   entryTime,
+    //   exitTime,
+    //   tradeDuration,
+    //   tradeDurationDays,
+    //   stdDevPlusMeanChange,
+    //   outboundChange,
+    //   inboundChange,
+    //   weightedOutboundChange,
+    //   score,
+    //   weight,
+    //   weightedScore,
+    // });
+
     return weightedScore * 100;
   }
 
   async addTrade(trade) {
     const addProm = this.tradeRepo.addTrade(trade);
 
+    console.log(trade);
     await this.markSourceUsed({
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,
@@ -252,6 +273,14 @@ module.exports = class TradeService {
     sourceType,
     quantity,
   }) {
+    console.log('markSourceUsed', {
+      traderID,
+      exchangeID,
+      sourceID,
+      sourceType,
+      quantity,
+    });
+
     if (sourceType === 'order') {
       return this.orderService.use({
         traderID,
@@ -275,29 +304,34 @@ module.exports = class TradeService {
   }
 
   async getRecentDailyTradeChangeStdDev(traderID, exitTime) {
-    const trades = await this.tradeRepo.getTrades({
-      traderID,
-      endTime: exitTime,
-      limit: this.numRecentTrades,
-    });
-    const dailyScores = trades.map((trade) => {
-      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
-      return trade.score / days;
-    });
+    const dailyScores = await this.getDailyScores(traderID, exitTime);
+    if (dailyScores.length === 0) {
+      return 0;
+    }
+
     return standardDeviationArr(dailyScores);
   }
 
   async getRecentDailyTradeChangeMean(traderID, exitTime) {
+    const dailyScores = await this.getDailyScores(traderID, exitTime);
+
+    if (dailyScores.length === 0) {
+      return 0;
+    }
+
+    return averageArr(dailyScores);
+  }
+
+  async getDailyScores(traderID, exitTime) {
     const trades = await this.tradeRepo.getTrades({
       traderID,
       endTime: exitTime,
       limit: this.numRecentTrades,
     });
-    const dailyScores = trades.map((trade) => {
-      const days = (trade.exit.time - trade.entry.time) / 24 * 60 * 60 * 1000;
+    return trades.map((trade) => {
+      const days = (trade.exit.time - trade.entry.time) / (24 * 60 * 60 * 1000);
       return trade.score / days;
     });
-    return averageArr(dailyScores);
   }
 
   async getTrades(args) {

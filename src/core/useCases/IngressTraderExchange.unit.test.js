@@ -566,7 +566,7 @@ test('calculates trader scores', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.scoreService.calculateScores, defaultReq.traderID);
+  sinon.assert.calledWith(deps.scoreService.calculateScores, { traderID: defaultReq.traderID });
 });
 
 test('calculate trader scores if trader has no other exchanges', async () => {
@@ -575,7 +575,7 @@ test('calculate trader scores if trader has no other exchanges', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.scoreService.calculateScores, defaultReq.traderID);
+  sinon.assert.calledWith(deps.scoreService.calculateScores, { traderID: defaultReq.traderID });
 });
 
 test('rejects if scoreService.calculateScores errors', async () => {

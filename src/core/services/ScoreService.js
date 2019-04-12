@@ -110,6 +110,7 @@ module.exports = class ScoreService {
     }
 
     const mutex = await this.traderScoreMutex.obtain({ traderID, period });
+    console.log('traderScoreMutex obtained', traderID, period);
 
     try {
       const startTime = Date.now() - periodConfig.duration;
@@ -134,6 +135,7 @@ module.exports = class ScoreService {
           limit: this.tradeFetchLimit,
           sort: 'asc',
         });
+        console.log('getTrades', trades);
 
         if (!trades || !Array.isArray(trades) || trades.length === 0) {
           break;
@@ -143,13 +145,14 @@ module.exports = class ScoreService {
 
         await this.traderScoreRepo.bulkUpdateTraderScore(traderScores);
 
-        lastStartTime = trades[trades.length - 1].exit.time;
+        lastStartTime = trades[trades.length - 1].exit.time + 1;
       }
 
       return score;
     } catch (e) {
       throw e;
     } finally {
+      console.log('calculateScore returned');
       mutex.release();
     }
   }

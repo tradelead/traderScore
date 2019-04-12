@@ -77,10 +77,13 @@ module.exports = class IngressTraderExchange {
       traderID,
       exchangeID,
     });
+    console.log('activity ingressed');
 
-    await this.scoreService.calculateScores(traderID);
+    await this.scoreService.calculateScores({ traderID });
+    console.log('calculated trader scores');
 
     await this.exchangeIngressRepo.markComplete({ traderID, exchangeID });
+    console.log('exchange ingress marked complete');
 
     return true;
   }

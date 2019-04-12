@@ -1,4 +1,3 @@
-const VError = require('verror');
 const knexFactory = require('knex');
 const Redis = require('ioredis');
 
@@ -106,14 +105,10 @@ beforeEach(async () => {
 });
 
 test('trader\'s first exchange ingress', async () => {
-  try {
-    await app.useCases.ingressTraderExchange({
-      traderID: 'trader1',
-      exchangeID: 'binance',
-    });
-  } catch (e) {
-    console.error(e, VError.info(e));
-  }
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
+  });
 
   const mockExchangeService = new ExchangeService({});
   console.log(mockExchangeService.getPrice.calls);

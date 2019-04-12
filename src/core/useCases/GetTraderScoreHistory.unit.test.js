@@ -5,6 +5,7 @@ const defaultReq = {
   traderID: 'trader123',
   startTime: 10,
   endTime: 100,
+  limit: 25,
 };
 
 let deps = {};
@@ -35,6 +36,7 @@ describe('traderScoreRepo.getTradersScoreHistories', () => {
       traderID: defaultReq.traderID,
       startTime: defaultReq.startTime,
       endTime: defaultReq.endTime,
+      limit: defaultReq.limit,
     }];
     sinon.assert.calledWithMatch(deps.traderScoreRepo.getTradersScoreHistories, expected);
   });
@@ -70,20 +72,20 @@ describe('data validation', () => {
     return expect(useCase.execute(req)).rejects.toThrow('"Trader ID" is required');
   });
 
-  it('throws error if startTime is missing', async () => {
-    const useCase = new GetTraderScoreHistory({});
-    const req = Object.assign({}, defaultReq);
-    delete req.startTime;
-
-    return expect(useCase.execute(req)).rejects.toThrow('"Start Time" is required');
-  });
-
   it('doesn\'t throws error if startTime is numeric string', async () => {
     const useCase = new GetTraderScoreHistory(deps);
     const req = Object.assign({}, defaultReq);
     req.startTime = '123';
 
-    return expect(useCase.execute(req)).resolves;
+    return expect(useCase.execute(req)).resolves.toBeNull();
+  });
+
+  it('doesn\'t throws error if limit isn\'t passed', async () => {
+    const useCase = new GetTraderScoreHistory(deps);
+    const req = Object.assign({}, defaultReq);
+    delete req.limit;
+
+    return expect(useCase.execute(req)).resolves.toBeNull();
   });
 
   it('throws error if startTime is non-numeric string', async () => {
@@ -94,12 +96,12 @@ describe('data validation', () => {
     return expect(useCase.execute(req)).rejects.toThrow('"Start Time" must be a number');
   });
 
-  it('throws error if endTime is missing', async () => {
+  it('throws error if limit is greater than 500', async () => {
     const useCase = new GetTraderScoreHistory({});
     const req = Object.assign({}, defaultReq);
-    delete req.endTime;
+    req.limit = 501;
 
-    return expect(useCase.execute(req)).rejects.toThrow('"End Time" is required');
+    return expect(useCase.execute(req)).rejects.toThrow('"Limit" must be less than 500');
   });
 
   it('doesn\'t error if endTime is numeric string', async () => {
@@ -107,7 +109,7 @@ describe('data validation', () => {
     const req = Object.assign({}, defaultReq);
     req.endTime = '123';
 
-    return expect(useCase.execute(req)).resolves;
+    return expect(useCase.execute(req)).resolves.toBeNull();
   });
 
   it('throws error if endTime is non-numeric string', async () => {

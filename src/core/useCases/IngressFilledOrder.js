@@ -56,11 +56,11 @@ module.exports = class IngressFilledOrder {
     let tradeQty = 0;
 
     if (order.side === 'buy') {
-      tradeAsset = order.asset;
+      tradeAsset = order.quoteAsset;
       const qtyBigNum = new BigNumber(order.quantity);
       tradeQty = qtyBigNum.times(order.price).toNumber();
     } else {
-      tradeAsset = order.quoteAsset;
+      tradeAsset = order.asset;
       tradeQty = order.quantity;
     }
 

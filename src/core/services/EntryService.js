@@ -20,6 +20,14 @@ module.exports = class EntryService {
     qty,
     exitTime,
   }) {
+    console.log('getEntries', {
+      traderID,
+      exchangeID,
+      asset,
+      qty,
+      exitTime,
+    });
+
     let entriesQty = 0;
     let firstRun = true;
     let ordersLeft = 0;
@@ -49,7 +57,7 @@ module.exports = class EntryService {
       }
 
       let type;
-      const startTime = (item && item.time > 0 ? item.time : 0);
+      const startTime = (item && item.time > 0 ? item.time + 1 : 0);
       const endTime = exitTime;
       const limit = this.getEntriesLimitPerFetch;
       const addToQueue = (additionalItems) => {
@@ -96,6 +104,12 @@ module.exports = class EntryService {
       firstRun = false;
     } while (entriesQty < qty && itemsLeft());
 
+    console.log(
+      entriesAcc,
+      await this.orderService.getFilledOrders({}),
+      await this.transferService.findDeposits({}),
+    );
+    console.log(entriesQty, qty);
     if (entriesQty < qty) {
       throw new Error('Insufficient entries');
     }
@@ -118,7 +132,8 @@ module.exports = class EntryService {
   }
 
   async getEntryQuoteAsset(entry, exchangeID, asset) {
-    if (this.exchangeService.isRootAsset(exchangeID, asset)) {
+    console.log('getEntryQuoteAsset', { entry, exchangeID, asset });
+    if (await this.exchangeService.isRootAsset({ exchangeID, symbol: asset })) {
       return asset;
     }
 

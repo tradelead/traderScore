@@ -535,3 +535,71 @@ test('getTrades calls tradeRepo', async () => {
 
   sinon.assert.calledWith(deps.tradeRepo.getTrades, { test: 1 });
 });
+
+describe('getRecentDailyTradeChangeStdDev', () => {
+  it('returns standard deviation of recent daily trade change', async () => {
+    deps.tradeRepo.getTrades.resolves([
+      { entry: { time: 1554476009616 }, exit: { time: 1555076009621 }, score: 15 },
+      { entry: { time: 1554076009616 }, exit: { time: 1555076009644 }, score: 55 },
+    ]);
+
+    const service = new TradeService(deps);
+    const stdDev = await service.getRecentDailyTradeChangeStdDev('trader1', 1000);
+    expect(stdDev).toEqual(1.2959999424720015);
+  });
+
+  it('returns 0 when has no trades', async () => {
+    deps.tradeRepo.getTrades.resolves([]);
+
+    const service = new TradeService(deps);
+    const stdDev = await service.getRecentDailyTradeChangeStdDev('trader1', 1000);
+    expect(stdDev).toEqual(0);
+  });
+
+  it('calls getTrades with correct params', async () => {
+    deps.tradeRepo.getTrades.resolves([]);
+
+    const service = new TradeService(deps);
+    await service.getRecentDailyTradeChangeStdDev('trader1', 1000);
+
+    sinon.assert.calledWith(deps.tradeRepo.getTrades, {
+      traderID: 'trader1',
+      endTime: 1000,
+      limit: deps.numRecentTrades,
+    });
+  });
+});
+
+describe('getRecentDailyTradeChangeMean', () => {
+  it('returns mean of recent daily trade change', async () => {
+    deps.tradeRepo.getTrades.resolves([
+      { entry: { time: 1554476009616 }, exit: { time: 1555076009621 }, score: 15 },
+      { entry: { time: 1554076009616 }, exit: { time: 1555076009644 }, score: 55 },
+    ]);
+
+    const service = new TradeService(deps);
+    const stdDev = await service.getRecentDailyTradeChangeMean('trader1', 1000);
+    expect(stdDev).toEqual(3.455999924472002);
+  });
+
+  it('returns 0 when has no trades', async () => {
+    deps.tradeRepo.getTrades.resolves([]);
+
+    const service = new TradeService(deps);
+    const mean = await service.getRecentDailyTradeChangeMean('trader1', 1000);
+    expect(mean).toEqual(0);
+  });
+
+  it('calls getTrades with correct params', async () => {
+    deps.tradeRepo.getTrades.resolves([]);
+
+    const service = new TradeService(deps);
+    await service.getRecentDailyTradeChangeMean('trader1', 1000);
+
+    sinon.assert.calledWith(deps.tradeRepo.getTrades, {
+      traderID: 'trader1',
+      endTime: 1000,
+      limit: deps.numRecentTrades,
+    });
+  });
+});

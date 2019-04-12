@@ -43,7 +43,7 @@ const exchangeIngressRepoFactory = new ExchangeIngressRepoFactory();
 const portfolioRepoFactory = new PortfolioRepoFactory();
 const orderRepoFactory = new OrderRepoFactory();
 const transferRepoFactory = new TransferRepoFactory();
-const traderScoreRepoFactory = new ScoreRepoFactory({ knex, redis });
+const traderScoreRepoFactory = new ScoreRepoFactory({ redis });
 const tradeRepoFactory = new TradeRepoFactory();
 
 const mutex = RedisMutex({ redis });

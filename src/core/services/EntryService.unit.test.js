@@ -137,11 +137,11 @@ describe('getEntries', () => {
       sinon.assert.calledWithMatch(deps.orderService.getFilledOrders, { startTime });
     });
 
-    it('calls startTime with time of last item', async () => {
+    it('calls startTime with time of last item plus 1 ms', async () => {
       const { time } = orders[0];
       sinon.assert.calledWithMatch(
         deps.orderService.getFilledOrders.secondCall,
-        { startTime: time },
+        { startTime: time + 1 },
       );
     });
   });
@@ -185,11 +185,11 @@ describe('getEntries', () => {
       sinon.assert.calledWithMatch(deps.transferService.findDeposits, { startTime });
     });
 
-    it('calls startTime with time of last item', async () => {
+    it('calls startTime with time of last item plus 1 ms', async () => {
       const { time } = deposits[0];
       sinon.assert.calledWithMatch(
         deps.transferService.findDeposits.secondCall,
-        { startTime: time },
+        { startTime: time + 1 },
       );
     });
   });
@@ -251,12 +251,13 @@ describe('getEntryQuoteAsset', () => {
     asset = 'ETH';
 
     deps.exchangeService.findMarketQuoteAsset.resolves('ABC');
+    deps.exchangeService.isRootAsset.resolves(false);
     service = new EntryService(deps);
   });
 
   it('equals asset if root asset', async () => {
     deps.exchangeService.isRootAsset
-      .withArgs(exchangeID, asset)
+      .withArgs({ exchangeID, symbol: asset })
       .resolves(true);
 
     const quoteAsset = await service.getEntryQuoteAsset(entry, exchangeID, asset);
