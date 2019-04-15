@@ -6,6 +6,7 @@ const config = {
     database: process.env.DATABASE_NAME,
     user: process.env.DATABASE_USER,
     password: process.env.DATABASE_PASSWORD,
+    timezone: 'utc',
   },
   pool: {
     min: parseInt(process.env.DATABASE_POOL_MIN),
@@ -22,6 +23,6 @@ const config = {
 
 module.exports = {
   development: config,
-  test: config,
+  test: Object.assign({}, config, { idleTimeoutMillis: 500 }),
   production: config,
 };

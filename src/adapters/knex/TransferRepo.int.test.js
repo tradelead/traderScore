@@ -82,6 +82,7 @@ describe('addDeposit', () => {
       .select('time')
       .from(tableName)
       .where({ ID: newDepositID });
+    console.log(savedDeposit);
     const date = new Date(savedDeposit.time);
     expect(date.getTime()).toBe(deposit.time);
   });

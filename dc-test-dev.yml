@@ -1,8 +1,10 @@
-version: '3'
+version: '2.1'
 
 services:
-  node:
-    build: .
+  migration:
+    image: node:8-alpine
+    command: /usr/app/node_modules/.bin/knex migrate:latest
+    working_dir: /usr/app/src/adapters/knex
     volumes:
       - .:/usr/app:cached
     environment:
@@ -16,8 +18,8 @@ services:
       REDIS_URL: redis://redis_db:6379
       SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
     depends_on:
-      - mysql
-      - redis_db
+      mysql:
+        condition: service_healthy
   mysql:
     image: mysql:5.7
     environment:
@@ -26,5 +28,11 @@ services:
       MAX_CONNECTIONS: 8192
     ports:
       - 9906:3306
+    healthcheck:
+      test: '/usr/bin/mysql --user=root --password=root --execute "SHOW DATABASES";'
+      timeout: 5s
+      retries: 12
   redis_db:
     image: redis:5.0
+    ports:
+      - 9907:6379

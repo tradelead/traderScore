@@ -6,7 +6,9 @@
   "scripts": {
     "test": "jest",
     "test:unit": "jest unit",
-    "test:int": "docker-compose -f docker-compose-test-runner.yml up --remove-orphans --force-recreate --build --abort-on-container-exit --exit-code-from tests"
+    "test:dev:up": "docker-compose -f dc-test-dev.yml up -d --remove-orphans",
+    "test:dev:down": "docker-compose -f dc-test-dev.yml down --remove-orphans",
+    "test:dev": "jest --setupTestFrameworkScriptFile=./tests/env-setup.js --runInBand --forceExit --detectOpenHandles"
   },
   "author": "",
   "license": "ISC",
@@ -23,6 +25,7 @@
     "verror": "^1.10.0"
   },
   "devDependencies": {
+    "dotenv": "^7.0.0",
     "eslint": "^5.14.1",
     "eslint-config-airbnb": "^17.1.0",
     "eslint-plugin-import": "^2.16.0",

@@ -1,6 +1,3 @@
-const knexFactory = require('knex');
-const Redis = require('ioredis');
-
 const app = require('../../app.bootstrap');
 
 const Order = require('../../src/core/models/Order');
@@ -8,30 +5,6 @@ const Deposit = require('../../src/core/models/Deposit');
 const Withdrawal = require('../../src/core/models/Withdrawal');
 
 const ExchangeService = require('../../src/core/services/ExchangeService');
-
-const knexConfig = require('../../src/adapters/knex/knexfile');
-
-const env = process.env.NODE_ENV || 'development';
-const knex = knexFactory(knexConfig[env]);
-
-const redis = new Redis(process.env.REDIS_URL);
-
-beforeEach(async () => {
-  await redis.flushdb();
-  await knex('exchangeIngress').truncate();
-  await knex('orders').truncate();
-  await knex('portfolio').truncate();
-  await knex('portfolioAssets').truncate();
-  await knex('scores').truncate();
-  await knex('scoreUpdateSchedule').truncate();
-  await knex('trades').truncate();
-  await knex('transfers').truncate();
-});
-
-afterAll(async () => {
-  await redis.disconnect();
-  await knex.destroy();
-});
 
 jest.mock('../../src/core/services/ExchangeService');
 
@@ -111,10 +84,6 @@ test('trader\'s first exchange ingress', async () => {
     exchangeID: 'binance',
   });
   console.timeEnd('ingressTraderExchange');
-
-  const mockExchangeService = new ExchangeService({});
-  console.log(mockExchangeService.getPrice.calls);
-  console.log(mockExchangeService.getBTCValue.calls);
 
   console.log(await app.useCases.getTraderScoreHistory({ traderID: 'trader1' }));
 });

@@ -25,6 +25,7 @@ function sleep(ms) {
 
 beforeEach(async () => {
   unitOfWork = new EventEmitter();
+  unitOfWork.idShort = () => 'test';
 
   await knex(tableName).truncate();
 
@@ -174,6 +175,7 @@ describe('updateTraderScore', () => {
 
       await knex.transaction(async (trx1) => {
         const unitOfWork1 = new EventEmitter();
+        unitOfWork1.idShort = () => 'test';
         const dup1ScoreRepo = new ScoreRepo({
           knexConn: trx1,
           knex,
@@ -190,6 +192,7 @@ describe('updateTraderScore', () => {
       try {
         await knex.transaction(async (trx2) => {
           const unitOfWork2 = new EventEmitter();
+          unitOfWork2.idShort = () => 'test';
           const dup2ScoreRepo = new ScoreRepo({
             knexConn: trx2,
             knex,

@@ -90,6 +90,7 @@ describe('getTrade', () => {
 
     // get from db
     const trade = await tradeRepo.getTrade(id);
+    console.log(trade, dbObj, msToMySQLFormat(1550000000000));
 
     expect(trade.ID).toEqual(id.toString());
     expect(trade.traderID).toEqual(dbObj.traderID);
@@ -103,9 +104,9 @@ describe('getTrade', () => {
     expect(trade.sourceType).toEqual(dbObj.exitSourceType);
     expect(trade.entry.sourceID).toEqual(dbObj.entrySourceID);
     expect(trade.entry.sourceType).toEqual(dbObj.entrySourceType);
-    expect(trade.entry.time).toEqual(new Date(dbObj.entryTime).getTime());
+    expect(trade.entry.time).toEqual(1550000000000);
     expect(trade.entry.price).toEqual(dbObj.entryPrice);
-    expect(trade.exit.time).toEqual(new Date(dbObj.exitTime).getTime());
+    expect(trade.exit.time).toEqual(1550000000000);
     expect(trade.exit.price).toEqual(dbObj.exitPrice);
   });
 });
