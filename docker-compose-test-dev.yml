@@ -23,6 +23,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: test
+      MAX_CONNECTIONS: 8192
     ports:
       - 9906:3306
   redis_db:

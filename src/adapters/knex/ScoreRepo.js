@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:ScoreRepo');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
 module.exports = class ScoreRepo {
@@ -93,13 +94,6 @@ module.exports = class ScoreRepo {
     period,
     time,
   }) {
-    console.log('updateTraderScore', {
-      traderID,
-      score,
-      period,
-      time,
-    });
-
     // add/update score
     const ID = await this.addOrUpdateMySQLScore({
       traderID,
@@ -242,6 +236,7 @@ module.exports = class ScoreRepo {
         this.unitOfWork.removeListener('complete', completeListener);
       };
 
+      debug(`add uow listeners ${this.unitOfWork.idShort()}`);
       this.unitOfWork.once('complete', completeListener);
       this.unitOfWork.once('rollback', rollbackListener);
     }

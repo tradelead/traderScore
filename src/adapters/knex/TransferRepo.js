@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:TransferRepo');
 const VError = require('verror');
 const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
@@ -19,6 +20,7 @@ module.exports = class TransferRepo {
     obj.time = msToMySQLFormat(obj.time);
     obj.quantityUnused = obj.quantity;
 
+    debug('insert deposit %o', obj);
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
     try {
@@ -40,6 +42,7 @@ module.exports = class TransferRepo {
     obj.quantityUnused = 0;
     obj.time = msToMySQLFormat(obj.time);
 
+    debug('insert withdrawal %o', obj);
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
     try {

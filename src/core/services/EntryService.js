@@ -20,14 +20,6 @@ module.exports = class EntryService {
     qty,
     exitTime,
   }) {
-    console.log('getEntries', {
-      traderID,
-      exchangeID,
-      asset,
-      qty,
-      exitTime,
-    });
-
     let entriesQty = 0;
     let firstRun = true;
     let ordersLeft = 0;
@@ -104,12 +96,6 @@ module.exports = class EntryService {
       firstRun = false;
     } while (entriesQty < qty && itemsLeft());
 
-    console.log(
-      entriesAcc,
-      await this.orderService.getFilledOrders({}),
-      await this.transferService.findDeposits({}),
-    );
-    console.log(entriesQty, qty);
     if (entriesQty < qty) {
       throw new Error('Insufficient entries');
     }
@@ -132,7 +118,6 @@ module.exports = class EntryService {
   }
 
   async getEntryQuoteAsset(entry, exchangeID, asset) {
-    console.log('getEntryQuoteAsset', { entry, exchangeID, asset });
     if (await this.exchangeService.isRootAsset({ exchangeID, symbol: asset })) {
       return asset;
     }

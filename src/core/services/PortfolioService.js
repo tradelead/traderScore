@@ -34,17 +34,12 @@ module.exports = class PortfolioService {
   }
 
   async incr(args) {
-    console.log('incr', args);
-    console.time(`incr ${args.traderID}-${args.exchangeID}-${args.asset}`);
     const res = await this.portfolioRepo.incr(args);
-    console.timeEnd(`incr ${args.traderID}-${args.exchangeID}-${args.asset}`);
     return res;
   }
 
   async decr(args) {
-    console.time(`decr ${args.traderID}-${args.exchangeID}-${args.asset}`);
     const res = await this.portfolioRepo.decr(args);
-    console.timeEnd(`decr ${args.traderID}-${args.exchangeID}-${args.asset}`);
     return res;
   }
 

@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:IngressFilledOrder');
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 const Order = require('../models/Order');
@@ -34,12 +35,14 @@ module.exports = class IngressFilledOrder {
       throw err;
     }
 
-    this.unitOfWork = await this.unitOfWorkFactory.create();
-    this.orderService = this.unitOfWork.orderService;
-    this.tradeService = this.unitOfWork.tradeService;
+    debug('called');
 
+    const unitOfWork = await this.unitOfWorkFactory.create();
+    const unitDebug = debug.extend(`${unitOfWork.idShort()}`);
+
+    unitDebug('start');
     if (!value.past) {
-      const ingressCompleted = await this.unitOfWork.exchangeIngressRepo.isComplete({
+      const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
         traderID: value.traderID,
         exchangeID: value.exchangeID,
       });
@@ -47,10 +50,11 @@ module.exports = class IngressFilledOrder {
         throw new Error('Exchange ingress not complete');
       }
     }
+    unitDebug('exchangeIngressRepo completed');
 
     const order = new Order(value);
 
-    const saveOrder = this.orderService.add(order);
+    const saveOrder = unitOfWork.orderService.add(order);
 
     let tradeAsset = '';
     let tradeQty = 0;
@@ -64,7 +68,7 @@ module.exports = class IngressFilledOrder {
       tradeQty = order.quantity;
     }
 
-    const newTrade = this.tradeService.newTrade({
+    const newTrade = unitOfWork.tradeService.newTrade({
       sourceType: 'order',
       sourceID: order.sourceID,
       traderID: order.traderID,
@@ -75,12 +79,16 @@ module.exports = class IngressFilledOrder {
       incrementScores: !value.past,
     });
 
+
     try {
       await saveOrder;
+      unitDebug('order added');
       await newTrade;
-      await this.unitOfWork.complete();
+      unitDebug('new trades added');
+      await unitOfWork.complete();
+      unitDebug('unit of work completed');
     } catch (e) {
-      await this.unitOfWork.rollback();
+      await unitOfWork.rollback();
       throw e;
     }
   }

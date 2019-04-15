@@ -1,3 +1,5 @@
+const debug = require('debug')('traderScore:ScoreService');
+
 function compoundScore(current, add) {
   return current * ((add / 100) + 1);
 }
@@ -23,7 +25,11 @@ module.exports = class ScoreService {
     score,
     time,
   }) {
+    const unitDebug = debug.extend(`${traderID}-${period}`);
+    unitDebug('incrementScore:start');
+
     const mutex = await this.traderScoreMutex.obtain({ traderID, period });
+    unitDebug('incrementScore:mutex obtained');
 
     try {
       const curScores = await this.traderScoreRepo.getTradersScoreHistories([{
@@ -33,9 +39,16 @@ module.exports = class ScoreService {
         limit: 1,
         sort: 'desc',
       }]);
+      unitDebug('incrementScore:current scores %O %O', {
+        traderID,
+        period,
+        endTime: time,
+        limit: 1,
+        sort: 'desc',
+      }, curScores);
 
       let curScore = 1;
-      if (curScores && curScores[0] && Array.isArray(curScores[0])) {
+      if (curScores && curScores[0] && Array.isArray(curScores[0]) && curScores[0][0]) {
         curScore = curScores[0][0].score;
       }
 
@@ -69,8 +82,10 @@ module.exports = class ScoreService {
           });
         });
       }
+      unitDebug('incrementScore:calc updates %O', updatedScores);
 
       await this.traderScoreRepo.bulkUpdateTraderScore(updatedScores);
+      unitDebug('incrementScore:bulk update scores %d', updatedScores.length);
     } catch (e) {
       throw e;
     } finally {
@@ -79,6 +94,8 @@ module.exports = class ScoreService {
   }
 
   async incrementScores({ traderID, score, time }) {
+    const unitDebug = debug.extend(`${traderID}`);
+    unitDebug('incrementScores:start');
     const promises = [];
 
     promises.push(this.incrementScore({ traderID, score, time }));
@@ -93,6 +110,7 @@ module.exports = class ScoreService {
     promises.push(...periodPromises);
 
     await Promise.all(promises);
+    unitDebug('incrementScores:finished');
   }
 
   async calculateScore({ traderID, period }) {

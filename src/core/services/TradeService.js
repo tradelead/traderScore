@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:TradeService');
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 const VError = require('verror');
@@ -40,13 +41,15 @@ module.exports = class TradeService {
   }
 
   async newTrade(req) {
-    console.log('newTrade', req);
     const { error, value } = schema.validate(req);
 
     if (error != null) {
       const humanErr = error.details.map(detail => detail.message).join(', ');
       throw new VError({ name: 'BadRequest', info: req }, humanErr);
     }
+
+    const unitDebug = debug.extend(`${value.traderID}-${value.sourceID}`);
+    unitDebug('start');
 
     const entries = await this.entryService.getEntries({
       traderID: value.traderID,
@@ -55,11 +58,17 @@ module.exports = class TradeService {
       qty: value.exitQuantity,
       exitTime: value.exitTime,
     });
+    unitDebug('get entries');
 
-    const tradePromises = entries.map(entry => this.createTradeFromEntry({ req: value, entry }));
+    const tradePromises = entries.map(async (entry) => {
+      const trade = await this.createTradeFromEntry({ req: value, entry });
+      unitDebug('created trade from entry %o', entry);
+      return trade;
+    });
     const trades = await Promise.all(tradePromises);
 
     await Promise.all(trades.map(trade => this.addTrade(trade)));
+    unitDebug('trades added');
 
     if (value.incrementScores) {
       // eslint-disable-next-line no-restricted-syntax
@@ -71,6 +80,7 @@ module.exports = class TradeService {
         });
       }
     }
+    unitDebug('scores incremented');
 
     return trades;
   }
@@ -103,7 +113,6 @@ module.exports = class TradeService {
       time: req.exitTime,
     });
 
-    console.log('newTradeReq', newTradeReq);
     return this.createTradeObj(newTradeReq);
   }
 
@@ -139,20 +148,6 @@ module.exports = class TradeService {
       entryTime: entry.time,
       exitTime: exit.time,
     });
-
-    // console.log({
-    //   traderID,
-    //   exchangeID,
-    //   sourceID,
-    //   sourceType,
-    //   asset,
-    //   quoteAsset,
-    //   quantity,
-    //   entry,
-    //   exit,
-    //   weight,
-    //   score,
-    // });
 
     return new Trade({
       traderID,
@@ -226,31 +221,12 @@ module.exports = class TradeService {
     const score = inboundChange + weightedOutboundChange;
     const weightedScore = score * weight;
 
-    // console.log({
-    //   traderID,
-    //   tradeChange,
-    //   dailyChangeStdDev,
-    //   dailyChangeMean,
-    //   entryTime,
-    //   exitTime,
-    //   tradeDuration,
-    //   tradeDurationDays,
-    //   stdDevPlusMeanChange,
-    //   outboundChange,
-    //   inboundChange,
-    //   weightedOutboundChange,
-    //   score,
-    //   weight,
-    //   weightedScore,
-    // });
-
     return weightedScore * 100;
   }
 
   async addTrade(trade) {
     const addProm = this.tradeRepo.addTrade(trade);
 
-    console.log(trade);
     await this.markSourceUsed({
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,
@@ -273,13 +249,6 @@ module.exports = class TradeService {
     sourceType,
     quantity,
   }) {
-    console.log('markSourceUsed', {
-      traderID,
-      exchangeID,
-      sourceID,
-      sourceType,
-      quantity,
-    });
 
     if (sourceType === 'order') {
       return this.orderService.use({

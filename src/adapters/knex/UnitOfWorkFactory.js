@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:UnitOfWorkFactory');
 const BufferedEventEmitter = require('../../utilities/BufferedEventEmitter');
 const KnexUnitOfWork = require('./UnitOfWork');
 const KnexTrxFactory = require('./KnexTrxFactory');
@@ -36,6 +37,7 @@ module.exports = class KnexUnitOfWorkFactory {
     uow.once('complete', uowCompleteListener);
     uow.once('rollback', uowRollbackListener);
 
+    debug(`created ${uow.idShort()}`);
     return uow;
   }
 };

@@ -36,6 +36,7 @@ beforeEach(() => {
     },
     complete: sinon.stub(),
     rollback: sinon.stub(),
+    idShort: () => 'test-uow',
   };
 
   unitOfWork.exchangeIngressRepo.isComplete.resolves(true);

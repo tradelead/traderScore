@@ -1,3 +1,4 @@
+const debug = require('debug')('traderScore:OrderRepo');
 const VError = require('verror');
 const BigNumber = require('bignumber.js');
 const msToMySQLFormat = require('./msToMySQLFormat');
@@ -25,6 +26,7 @@ module.exports = class PortfolioRepo {
         obj.feeQuantity = order.fee.quantity;
       }
 
+      debug('insert order %o', obj);
       return this.knexConn.insert(obj, ['ID']).into(this.tableName);
     } catch (cause) {
       const info = { order };

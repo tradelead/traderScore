@@ -28,10 +28,10 @@ module.exports = class IngressWithdrawal {
 
     const withdrawal = new Withdrawal(value);
 
-    this.unitOfWork = await this.unitOfWorkFactory.create();
+    const unitOfWork = await this.unitOfWorkFactory.create();
 
     if (!value.past) {
-      const ingressCompleted = await this.unitOfWork.exchangeIngressRepo.isComplete({
+      const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
         traderID: value.traderID,
         exchangeID: value.exchangeID,
       });
@@ -41,7 +41,7 @@ module.exports = class IngressWithdrawal {
     }
 
     try {
-      const newTrade = this.unitOfWork.tradeService.newTrade({
+      const newTrade = unitOfWork.tradeService.newTrade({
         sourceType: 'withdrawal',
         sourceID: value.sourceID,
         traderID: value.traderID,
@@ -52,11 +52,11 @@ module.exports = class IngressWithdrawal {
         incrementScores: !value.past,
       });
 
-      await this.unitOfWork.transferService.addWithdrawal(withdrawal);
+      await unitOfWork.transferService.addWithdrawal(withdrawal);
       await newTrade;
-      await this.unitOfWork.complete();
+      await unitOfWork.complete();
     } catch (e) {
-      await this.unitOfWork.rollback();
+      await unitOfWork.rollback();
       throw e;
     }
   }

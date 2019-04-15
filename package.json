@@ -13,11 +13,13 @@
   "dependencies": {
     "aws-sdk": "^2.427.0",
     "bignumber.js": "^8.1.1",
+    "debug": "^4.1.1",
     "ioredis": "^4.9.0",
     "joi": "^14.3.1",
     "knex": "^0.16.3",
     "mysql": "^2.16.0",
     "node-redis-warlock": "^0.2.0",
+    "uuid": "^3.3.2",
     "verror": "^1.10.0"
   },
   "devDependencies": {
@@ -28,6 +30,8 @@
     "eslint-plugin-jsx-a11y": "^6.2.1",
     "eslint-plugin-react": "^7.12.4",
     "jest": "^24.1.0",
-    "sinon": "^7.2.5"
+    "mock-require": "^3.0.3",
+    "sinon": "^7.2.5",
+    "worker-farm": "^1.6.0"
   }
 }
