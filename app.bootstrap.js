@@ -124,7 +124,10 @@ const IngressWithdrawal = require('./src/core/useCases/IngressWithdrawal');
 const IngressTraderExchange = require('./src/core/useCases/IngressTraderExchange');
 const RemoveTraderExchange = require('./src/core/useCases/RemoveTraderExchange');
 
-const getTopTraders = new GetTopTraders({ traderScoreRepo, allowedPeriods: scorePeriodConfig });
+const getTopTraders = new GetTopTraders({
+  traderScoreRepo,
+  allowedPeriods: scorePeriodConfig.map(config => config.id),
+});
 
 const getTraderScoreHistory = new GetTraderScoreHistory({ traderScoreRepo });
 

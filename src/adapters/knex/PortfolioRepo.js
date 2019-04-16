@@ -26,21 +26,6 @@ module.exports = class PortfolioRepo {
       const lastQty = (item && item.quantity ? item.quantity : 0);
       const qtyNum = new BigNumber(quantity);
 
-      // (async () => {
-      //   console.log('incr', {
-      //     traderExchangeAssetID,
-      //     newQty: qtyNum.plus(lastQty).toNumber(),
-      //     lastQty,
-      //     traderID,
-      //     exchangeID,
-      //     asset,
-      //     quantity,
-      //     time,
-      //     item,
-      //     db: await this.knexConn(this.tableName).select(),
-      //   });
-      // })();
-
       return qtyNum.plus(lastQty).toNumber();
     });
   }
@@ -72,24 +57,8 @@ module.exports = class PortfolioRepo {
       const lastQtyNum = new BigNumber(lastQty);
       const newQty = lastQtyNum.minus(quantity).toNumber();
       if (newQty < 0) {
-        console.error('cannot decr: insufficient asset quantity');
         throw new Error('cannot decr: insufficient asset quantity');
       }
-
-      // (async () => {
-      //   console.log('desc', {
-      //     traderExchangeAssetID,
-      //     newQty,
-      //     lastQty,
-      //     traderID,
-      //     exchangeID,
-      //     asset,
-      //     quantity,
-      //     time,
-      //     item,
-      //     db: await this.knexConn(this.tableName).select(),
-      //   });
-      // })();
 
       return newQty;
     });

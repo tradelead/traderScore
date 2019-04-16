@@ -38,7 +38,7 @@ describe('incr method', () => {
 
   it('saves traderID, exchangeID, asset on first', async () => {
     const [savedAsset] = await knex.select().from(assetTableName);
-    console.log(savedAsset);
+
     expect(savedAsset.traderID).toBe(req.traderID);
     expect(savedAsset.exchangeID).toBe(req.exchangeID);
     expect(savedAsset.asset).toBe(req.asset);

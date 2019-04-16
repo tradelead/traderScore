@@ -1,11 +1,13 @@
+const sinon = require('sinon');
+
 const mockExchangeService = {
-  getFilledOrders: jest.fn(),
-  getSuccessfulDeposits: jest.fn(),
-  getSuccessfulWithdrawals: jest.fn(),
-  isRootAsset: jest.fn(),
-  getPrice: jest.fn(),
-  getBTCValue: jest.fn(),
-  findMarketQuoteAsset: jest.fn(),
+  getFilledOrders: sinon.stub(),
+  getSuccessfulDeposits: sinon.stub(),
+  getSuccessfulWithdrawals: sinon.stub(),
+  isRootAsset: sinon.stub(),
+  getPrice: sinon.stub(),
+  getBTCValue: sinon.stub(),
+  findMarketQuoteAsset: sinon.stub(),
 };
 
 // eslint-disable-next-line prefer-arrow-callback

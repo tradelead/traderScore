@@ -90,7 +90,6 @@ describe('getTrade', () => {
 
     // get from db
     const trade = await tradeRepo.getTrade(id);
-    console.log(trade, dbObj, msToMySQLFormat(1550000000000));
 
     expect(trade.ID).toEqual(id.toString());
     expect(trade.traderID).toEqual(dbObj.traderID);

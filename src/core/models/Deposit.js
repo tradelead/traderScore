@@ -10,7 +10,7 @@ const schema = Joi.object().keys({
   quantity: Joi.number().positive().required().label('Quantity'),
 }).unknown();
 
-module.exports = class Trade {
+module.exports = class Deposit {
   constructor(req) {
     const { error, value } = schema.validate(req);
 

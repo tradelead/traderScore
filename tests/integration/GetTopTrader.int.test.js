@@ -56,6 +56,8 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
+  mockExchangeService.getFilledOrders.reset();
+
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
@@ -64,9 +66,15 @@ beforeEach(async () => {
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
     .onFirstCall()
-    .resolves([Object.assign({}, defaultOrder, { exchangeID: 'bittrex' })]);
+    .resolves([Object.assign({}, defaultOrder, {
+      exchangeID: 'bittrex',
+      traderID: 'trader2',
+      quantity: 6,
+    })]);
 
   mockExchangeService.getFilledOrders.resolves([]);
+
+  mockExchangeService.getSuccessfulDeposits.reset();
 
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
@@ -76,9 +84,14 @@ beforeEach(async () => {
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
     .onFirstCall()
-    .resolves([Object.assign({}, defaultDeposit, { exchangeID: 'bittrex' })]);
+    .resolves([Object.assign({}, defaultDeposit, {
+      exchangeID: 'bittrex',
+      traderID: 'trader2',
+    })]);
 
   mockExchangeService.getSuccessfulDeposits.resolves([]);
+
+  mockExchangeService.getSuccessfulWithdrawals.reset();
 
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'binance' }))
@@ -88,9 +101,15 @@ beforeEach(async () => {
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
     .onFirstCall()
-    .resolves([Object.assign({}, defaultWithdrawal, { exchangeID: 'bittrex' })]);
+    .resolves([Object.assign({}, defaultWithdrawal, {
+      exchangeID: 'bittrex',
+      traderID: 'trader2',
+      quantity: 6,
+    })]);
 
   mockExchangeService.getSuccessfulWithdrawals.resolves([]);
+
+  mockExchangeService.getPrice.reset();
 
   mockExchangeService.getPrice
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
@@ -106,30 +125,26 @@ beforeEach(async () => {
 
   mockExchangeService.getPrice.resolves(1);
 
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'BTC', time: defaultOrder.time }))
-    .resolves(0.3);
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'BTC', time: defaultWithdrawal.time }))
-    .resolves(0.3);
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ asset: 'USDT', quoteAsset: 'USDT', time: defaultDeposit.time }))
-    .resolves(0.3);
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultOrder.time }))
-    .resolves(0.3);
+  mockExchangeService.getBTCValue.reset();
 
   mockExchangeService.getBTCValue
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultWithdrawal.time }))
     .resolves(0.45);
 
+  mockExchangeService.getBTCValue
+    .withArgs(sinon.match({ qty: 6 }))
+    .resolves(0.15);
+
+  mockExchangeService.getBTCValue
+    .withArgs(sinon.match({ qty: 12.345 }))
+    .resolves(0.3);
+
   mockExchangeService.getBTCValue.resolves(1);
 
+  mockExchangeService.isRootAsset.reset();
   mockExchangeService.isRootAsset.callsFake(async ({ symbol }) => symbol === 'USDT');
 
+  mockExchangeService.findMarketQuoteAsset.reset();
   mockExchangeService.findMarketQuoteAsset.callsFake(async ({ asset, preferredQuoteAsset }) => {
     if (asset === 'USDT') {
       return 'USDT';
@@ -138,87 +153,38 @@ beforeEach(async () => {
   });
 });
 
-test('trader\'s first & second exchange ingress', async () => {
+test('getTopTraders global', async () => {
   await app.useCases.ingressTraderExchange({
     traderID: 'trader1',
     exchangeID: 'binance',
   });
 
   await app.useCases.ingressTraderExchange({
-    traderID: 'trader1',
+    traderID: 'trader2',
     exchangeID: 'bittrex',
   });
 
-  const scores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
-
-  expect(scores).toHaveLength(5);
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    ID: expect.anything(),
-    traderID: 'trader1',
-    period: 'day',
-    score: 1.10776554,
-    time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'week',
-    score: 1.10776554,
-    time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'global',
-    score: 1.10776554,
-    time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'week',
-    score: 1,
-    time: 1555291080513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'global',
-    score: 1,
-    time: 1555291080513,
-  }));
+  const topTraders = await app.useCases.getTopTraders({ limit: 2 });
+  expect(topTraders).toEqual([
+    { traderID: 'trader1', rank: 1 },
+    { traderID: 'trader2', rank: 2 },
+  ]);
 });
 
-test('during exchange ingress, deposit ingress throws error', async () => {
-  const exchangeIngressProm = app.useCases.ingressTraderExchange({
+test('getTopTraders day period', async () => {
+  await app.useCases.ingressTraderExchange({
     traderID: 'trader1',
     exchangeID: 'binance',
   });
 
-  const depositIngressProm = app.useCases.ingressDeposit(defaultDeposit);
-  await expect(depositIngressProm).rejects.toThrow('Exchange ingress not complete');
-  await exchangeIngressProm;
-});
-
-test('during exchange ingress, order ingress throws error', async () => {
-  const exchangeIngressProm = app.useCases.ingressTraderExchange({
-    traderID: 'trader1',
-    exchangeID: 'binance',
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader2',
+    exchangeID: 'bittrex',
   });
 
-  const orderIngressProm = app.useCases.ingressFilledOrder(defaultOrder);
-  await expect(orderIngressProm).rejects.toThrow('Exchange ingress not complete');
-  await exchangeIngressProm;
-});
-
-test('during exchange ingress, withdrawal ingress throws error', async () => {
-  const exchangeIngressProm = app.useCases.ingressTraderExchange({
-    traderID: 'trader1',
-    exchangeID: 'binance',
-  });
-
-  const withdrawalIngressProm = app.useCases.ingressWithdrawal(defaultWithdrawal);
-  await expect(withdrawalIngressProm).rejects.toThrow('Exchange ingress not complete');
-  await exchangeIngressProm;
+  const topTraders = await app.useCases.getTopTraders({ period: 'day', limit: 2 });
+  expect(topTraders).toEqual([
+    { traderID: 'trader1', rank: 1 },
+    { traderID: 'trader2', rank: 2 },
+  ]);
 });

@@ -17,7 +17,7 @@ const schema = Joi.object().keys({
   }),
 }).unknown();
 
-module.exports = class Trade {
+module.exports = class Order {
   constructor(req) {
     const { error, value } = schema.validate(req);
 
