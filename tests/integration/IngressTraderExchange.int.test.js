@@ -1,5 +1,7 @@
 const app = require('../../app.bootstrap');
 
+const flushDbs = require('../flushDBs');
+
 const Order = require('../../src/core/models/Order');
 const Deposit = require('../../src/core/models/Deposit');
 const Withdrawal = require('../../src/core/models/Withdrawal');
@@ -157,4 +159,55 @@ test('trader\'s first exchange ingress', async () => {
     score: 1,
     time: 1555291080513,
   }));
+});
+
+test('during exchange ingress, deposit ingress throws error', async () => {
+  try {
+    await flushDbs();
+
+    const exchangeIngressProm = app.useCases.ingressTraderExchange({
+      traderID: 'trader1',
+      exchangeID: 'binance',
+    });
+
+    const depositIngressProm = app.useCases.ingressDeposit(defaultDeposit);
+    await expect(depositIngressProm).rejects.toThrow();
+    await exchangeIngressProm;
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+test('during exchange ingress, order ingress throws error', async () => {
+  try {
+    await flushDbs();
+
+    const exchangeIngressProm = app.useCases.ingressTraderExchange({
+      traderID: 'trader1',
+      exchangeID: 'binance',
+    });
+
+    const orderIngressProm = app.useCases.ingressFilledOrder(defaultOrder);
+    await expect(orderIngressProm).rejects.toThrow();
+    await exchangeIngressProm;
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+test('during exchange ingress, withdrawal ingress throws error', async () => {
+  try {
+    await flushDbs();
+
+    const exchangeIngressProm = app.useCases.ingressTraderExchange({
+      traderID: 'trader1',
+      exchangeID: 'binance',
+    });
+
+    const withdrawalIngressProm = app.useCases.ingressWithdrawal(defaultWithdrawal);
+    await expect(withdrawalIngressProm).rejects.toThrow();
+    await exchangeIngressProm;
+  } catch (e) {
+    console.error(e);
+  }
 });

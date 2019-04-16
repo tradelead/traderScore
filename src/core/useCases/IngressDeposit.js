@@ -29,18 +29,17 @@ module.exports = class IngressDeposit {
     const deposit = new Deposit(value);
 
     const unitOfWork = await this.unitOfWorkFactory.create();
-
-    if (!value.past) {
-      const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
-        traderID: value.traderID,
-        exchangeID: value.exchangeID,
-      });
-      if (!ingressCompleted) {
-        throw new Error('Exchange ingress not complete');
-      }
-    }
-
     try {
+      if (!value.past) {
+        const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
+          traderID: value.traderID,
+          exchangeID: value.exchangeID,
+        });
+        if (!ingressCompleted) {
+          throw new Error('Exchange ingress not complete');
+        }
+      }
+
       await unitOfWork.transferService.addDeposit(deposit);
       await unitOfWork.complete();
     } catch (e) {

@@ -35,52 +35,49 @@ module.exports = class IngressFilledOrder {
       throw err;
     }
 
-    debug('called');
-
     const unitOfWork = await this.unitOfWorkFactory.create();
-    const unitDebug = debug.extend(`${unitOfWork.idShort()}`);
-
-    unitDebug('start');
-    if (!value.past) {
-      const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
-        traderID: value.traderID,
-        exchangeID: value.exchangeID,
-      });
-      if (!ingressCompleted) {
-        throw new Error('Exchange ingress not complete');
-      }
-    }
-    unitDebug('exchangeIngressRepo completed');
-
-    const order = new Order(value);
-
-    const saveOrder = unitOfWork.orderService.add(order);
-
-    let tradeAsset = '';
-    let tradeQty = 0;
-
-    if (order.side === 'buy') {
-      tradeAsset = order.quoteAsset;
-      const qtyBigNum = new BigNumber(order.quantity);
-      tradeQty = qtyBigNum.times(order.price).toNumber();
-    } else {
-      tradeAsset = order.asset;
-      tradeQty = order.quantity;
-    }
-
-    const newTrade = unitOfWork.tradeService.newTrade({
-      sourceType: 'order',
-      sourceID: order.sourceID,
-      traderID: order.traderID,
-      exchangeID: order.exchangeID,
-      asset: tradeAsset,
-      exitQuantity: tradeQty,
-      exitTime: order.time,
-      incrementScores: !value.past,
-    });
-
-
     try {
+      const unitDebug = debug.extend(`${unitOfWork.idShort()}`);
+
+      unitDebug('start');
+      if (!value.past) {
+        const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
+          traderID: value.traderID,
+          exchangeID: value.exchangeID,
+        });
+        if (!ingressCompleted) {
+          throw new Error('Exchange ingress not complete');
+        }
+      }
+      unitDebug('exchangeIngressRepo completed');
+
+      const order = new Order(value);
+
+      const saveOrder = unitOfWork.orderService.add(order);
+
+      let tradeAsset = '';
+      let tradeQty = 0;
+
+      if (order.side === 'buy') {
+        tradeAsset = order.quoteAsset;
+        const qtyBigNum = new BigNumber(order.quantity);
+        tradeQty = qtyBigNum.times(order.price).toNumber();
+      } else {
+        tradeAsset = order.asset;
+        tradeQty = order.quantity;
+      }
+
+      const newTrade = unitOfWork.tradeService.newTrade({
+        sourceType: 'order',
+        sourceID: order.sourceID,
+        traderID: order.traderID,
+        exchangeID: order.exchangeID,
+        asset: tradeAsset,
+        exitQuantity: tradeQty,
+        exitTime: order.time,
+        incrementScores: !value.past,
+      });
+
       await saveOrder;
       unitDebug('order added');
       await newTrade;

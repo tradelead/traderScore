@@ -30,17 +30,17 @@ module.exports = class IngressWithdrawal {
 
     const unitOfWork = await this.unitOfWorkFactory.create();
 
-    if (!value.past) {
-      const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
-        traderID: value.traderID,
-        exchangeID: value.exchangeID,
-      });
-      if (!ingressCompleted) {
-        throw new Error('Exchange ingress not complete');
-      }
-    }
-
     try {
+      if (!value.past) {
+        const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
+          traderID: value.traderID,
+          exchangeID: value.exchangeID,
+        });
+        if (!ingressCompleted) {
+          throw new Error('Exchange ingress not complete');
+        }
+      }
+
       const newTrade = unitOfWork.tradeService.newTrade({
         sourceType: 'withdrawal',
         sourceID: value.sourceID,
