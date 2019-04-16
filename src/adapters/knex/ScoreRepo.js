@@ -47,7 +47,7 @@ module.exports = class ScoreRepo {
     }) => {
       const filters = {
         traderID,
-        period,
+        period: period || 'global',
       };
       // remove undefined
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);

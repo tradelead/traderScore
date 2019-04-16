@@ -118,6 +118,7 @@ const tradeServiceFactory = new TradeServiceFactory({
  */
 const GetTopTraders = require('./src/core/useCases/GetTopTraders');
 const GetTraderScoreHistory = require('./src/core/useCases/GetTraderScoreHistory');
+const GetTradersRank = require('./src/core/useCases/GetTradersRank');
 const IngressDeposit = require('./src/core/useCases/IngressDeposit');
 const IngressFilledOrder = require('./src/core/useCases/IngressFilledOrder');
 const IngressWithdrawal = require('./src/core/useCases/IngressWithdrawal');
@@ -130,6 +131,8 @@ const getTopTraders = new GetTopTraders({
 });
 
 const getTraderScoreHistory = new GetTraderScoreHistory({ traderScoreRepo });
+
+const getTradersRank = new GetTradersRank({ traderScoreRepo });
 
 const depositUOWFactory = new UnitOfWorkFactory({
   knex,
@@ -195,6 +198,7 @@ module.exports = {
   useCases: {
     getTopTraders: getTopTraders.execute.bind(getTopTraders),
     getTraderScoreHistory: getTraderScoreHistory.execute.bind(getTraderScoreHistory),
+    getTradersRank: getTradersRank.execute.bind(getTradersRank),
     ingressDeposit: ingressDeposit.execute.bind(ingressDeposit),
     ingressFilledOrder: ingressFilledOrder.execute.bind(ingressFilledOrder),
     ingressWithdrawal: ingressWithdrawal.execute.bind(ingressWithdrawal),

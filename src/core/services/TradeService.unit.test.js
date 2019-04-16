@@ -408,6 +408,21 @@ describe('score', () => {
     expect(score).toBe(4.196158711389381);
   });
 
+  it('returns positive even when mean & stdDev negative', async () => {
+    service.getRecentDailyTradeChangeStdDev.withArgs('trader123').resolves(-0.10);
+    service.getRecentDailyTradeChangeMean.withArgs('trader123').resolves(-0.05);
+
+    const score = await service.score({
+      traderID: 'trader123',
+      tradeChange: 0.25,
+      entryTime: Date.now() - (60 * 60 * 24 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+    });
+
+    expect(score).toBe(2.321928094887362);
+  });
+
   it('returns positive and only 6 hrs', async () => {
     const score = await service.score({
       traderID: 'trader123',

@@ -5,6 +5,7 @@ const requestSchema = Joi.object().keys({
   startTime: Joi.number().greater(0).label('Start Time'),
   endTime: Joi.number().greater(0).label('End Time'),
   limit: Joi.number().default(100).less(500).label('Limit'),
+  period: Joi.string().label('Period'),
 });
 
 module.exports = class GetTraderScoreHistory {
@@ -27,6 +28,7 @@ module.exports = class GetTraderScoreHistory {
       startTime,
       endTime,
       limit,
+      period,
     } = value;
 
     const scoreHistories = await this.traderScoreRepo.getTradersScoreHistories([{
@@ -34,6 +36,7 @@ module.exports = class GetTraderScoreHistory {
       startTime,
       endTime,
       limit,
+      period,
     }]);
 
     if (!Array.isArray(scoreHistories)) {

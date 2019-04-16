@@ -6,6 +6,7 @@ const defaultReq = {
   startTime: 10,
   endTime: 100,
   limit: 25,
+  period: 'day',
 };
 
 let deps = {};
@@ -37,6 +38,7 @@ describe('traderScoreRepo.getTradersScoreHistories', () => {
       startTime: defaultReq.startTime,
       endTime: defaultReq.endTime,
       limit: defaultReq.limit,
+      period: defaultReq.period,
     }];
     sinon.assert.calledWithMatch(deps.traderScoreRepo.getTradersScoreHistories, expected);
   });
@@ -84,6 +86,14 @@ describe('data validation', () => {
     const useCase = new GetTraderScoreHistory(deps);
     const req = Object.assign({}, defaultReq);
     delete req.limit;
+
+    return expect(useCase.execute(req)).resolves.toBeNull();
+  });
+
+  it('doesn\'t throws error if period isn\'t passed', async () => {
+    const useCase = new GetTraderScoreHistory(deps);
+    const req = Object.assign({}, defaultReq);
+    delete req.period;
 
     return expect(useCase.execute(req)).resolves.toBeNull();
   });

@@ -149,44 +149,49 @@ test('trader\'s first & second exchange ingress', async () => {
     exchangeID: 'bittrex',
   });
 
-  const scores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
+  const globalScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
+  expect(globalScores).toHaveLength(2);
 
-  expect(scores).toHaveLength(5);
+  expect(globalScores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'global',
+    score: 1.10776554,
+    time: 1555377480513,
+  }));
 
-  expect(scores).toContainEqual(expect.objectContaining({
+  expect(globalScores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'global',
+    score: 1,
+    time: 1555291080513,
+  }));
+
+  const weekScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'week' });
+  expect(weekScores).toHaveLength(2);
+
+  expect(weekScores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'week',
+    score: 1.10776554,
+    time: 1555377480513,
+  }));
+
+  expect(weekScores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'week',
+    score: 1,
+    time: 1555291080513,
+  }));
+
+  const dayScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'day' });
+  expect(dayScores).toHaveLength(1);
+
+  expect(dayScores).toContainEqual(expect.objectContaining({
     ID: expect.anything(),
     traderID: 'trader1',
     period: 'day',
     score: 1.10776554,
     time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'week',
-    score: 1.10776554,
-    time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'global',
-    score: 1.10776554,
-    time: 1555377480513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'week',
-    score: 1,
-    time: 1555291080513,
-  }));
-
-  expect(scores).toContainEqual(expect.objectContaining({
-    traderID: 'trader1',
-    period: 'global',
-    score: 1,
-    time: 1555291080513,
   }));
 });
 

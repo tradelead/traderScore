@@ -201,8 +201,11 @@ module.exports = class TradeService {
     const stdDevProm = this.getRecentDailyTradeChangeStdDev(traderID, exitTime);
     const meanProm = this.getRecentDailyTradeChangeMean(traderID, exitTime);
 
-    const dailyChangeStdDev = await stdDevProm;
-    const dailyChangeMean = await meanProm;
+    let dailyChangeStdDev = await stdDevProm;
+    dailyChangeStdDev = dailyChangeStdDev > 0 ? dailyChangeStdDev : 0;
+
+    let dailyChangeMean = await meanProm;
+    dailyChangeMean = dailyChangeMean > 0 ? dailyChangeMean : 0;
 
     const exitTimeNum = new BigNumber(exitTime);
     const tradeDuration = exitTimeNum.minus(entryTime);
@@ -249,7 +252,6 @@ module.exports = class TradeService {
     sourceType,
     quantity,
   }) {
-
     if (sourceType === 'order') {
       return this.orderService.use({
         traderID,
