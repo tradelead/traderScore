@@ -17,14 +17,12 @@ module.exports = class TransferRepo {
     }
 
     const obj = Object.assign({}, deposit, { type: 'deposit' });
-    console.log(obj);
     obj.time = msToMySQLFormat(obj.time);
     obj.quantityUnused = obj.quantity;
-    console.log(obj);
     const insertProm = this.knexConn.insert(obj, ['ID']).into(this.tableName);
 
     try {
-      return await insertProm;
+      return insertProm;
     } catch (cause) {
       const info = { deposit };
       throw new VError({ cause, info }, 'error adding deposit');

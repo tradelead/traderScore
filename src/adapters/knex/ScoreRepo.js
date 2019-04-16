@@ -77,7 +77,13 @@ module.exports = class ScoreRepo {
 
     const resp = [];
     reqs.forEach((req) => {
-      resp.push(rows.splice(0, req.limit || 10));
+      const items = rows.splice(0, req.limit || 10);
+      const itemsWithTime = items.map(item => Object.assign(
+        {},
+        item,
+        { time: new Date(item.time).getTime() },
+      ));
+      resp.push(itemsWithTime);
     });
 
     return resp;

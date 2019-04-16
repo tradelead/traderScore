@@ -283,7 +283,6 @@ module.exports = class TradeService {
 
   async getRecentDailyTradeChangeMean(traderID, exitTime) {
     const dailyScores = await this.getDailyScores(traderID, exitTime);
-
     if (dailyScores.length === 0) {
       return 0;
     }

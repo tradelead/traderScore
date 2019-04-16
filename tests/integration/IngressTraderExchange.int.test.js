@@ -12,7 +12,7 @@ let orders;
 let deposits;
 let withdrawals;
 
-const sampleTime = Date.now();
+const sampleTime = 1555377480513;
 const defaultOrder = new Order({
   traderID: 'trader1',
   sourceID: 'order1',
@@ -20,7 +20,7 @@ const defaultOrder = new Order({
   side: 'buy',
   asset: 'ETH',
   quoteAsset: 'USDT',
-  time: sampleTime - 1,
+  time: sampleTime - (24 * 60 * 60 * 1000),
   quantity: 12.345,
   price: 123.4567,
   fee: {
@@ -34,7 +34,7 @@ const defaultDeposit = new Deposit({
   sourceID: 'transfer1',
   exchangeID: 'binance',
   asset: 'USDT',
-  time: sampleTime - 2,
+  time: sampleTime - (2 * 24 * 60 * 60 * 1000),
   quantity: 1551.0729615,
 });
 
@@ -65,8 +65,43 @@ beforeEach(async () => {
 
   mockExchangeService.isRootAsset.mockImplementation(async ({ symbol }) => symbol === 'USDT');
 
-  mockExchangeService.getPrice.mockImplementation(async () => 1);
-  mockExchangeService.getBTCValue.mockImplementation(async () => 1);
+  const priceDB = {};
+
+  priceDB['ETH-USDT'] = {};
+  priceDB['ETH-USDT'][defaultDeposit.time] = 100;
+  priceDB['ETH-USDT'][defaultOrder.time] = 150;
+  priceDB['ETH-USDT'][defaultWithdrawal.time] = 225;
+
+  mockExchangeService.getPrice.mockImplementation(async ({ asset, quoteAsset, time }) => {
+    const pair = `${asset}-${quoteAsset}`;
+    if (priceDB && priceDB[pair] && priceDB[pair][time]) {
+      return priceDB[pair][time];
+    }
+
+    return 1;
+  });
+
+  const btcValueDB = {};
+
+  btcValueDB['ETH-BTC'] = {};
+  btcValueDB['ETH-BTC'][defaultOrder.time] = 0.3;
+  btcValueDB['ETH-BTC'][defaultWithdrawal.time] = 0.3;
+
+  btcValueDB['USDT-USDT'] = {};
+  btcValueDB['USDT-USDT'][defaultOrder.time] = 0.3;
+
+  btcValueDB['ETH-USDT'] = {};
+  btcValueDB['ETH-USDT'][defaultOrder.time] = 0.3;
+  btcValueDB['ETH-USDT'][defaultWithdrawal.time] = 0.45;
+
+  mockExchangeService.getBTCValue.mockImplementation(async ({ asset, quoteAsset, time }) => {
+    const pair = `${asset}-${quoteAsset}`;
+    if (btcValueDB && btcValueDB[pair] && btcValueDB[pair][time]) {
+      return btcValueDB[pair][time];
+    }
+
+    return 1;
+  });
 
   mockExchangeService.findMarketQuoteAsset
     .mockImplementation(async ({ asset, preferredQuoteAsset }) => {
@@ -78,12 +113,48 @@ beforeEach(async () => {
 });
 
 test('trader\'s first exchange ingress', async () => {
-  console.time('ingressTraderExchange');
   await app.useCases.ingressTraderExchange({
     traderID: 'trader1',
     exchangeID: 'binance',
   });
-  console.timeEnd('ingressTraderExchange');
 
-  console.log(await app.useCases.getTraderScoreHistory({ traderID: 'trader1' }));
+  const scores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
+
+  expect(scores).toHaveLength(5);
+
+  expect(scores).toContainEqual(expect.objectContaining({
+    ID: expect.anything(),
+    traderID: 'trader1',
+    period: 'day',
+    score: 1.01953643,
+    time: 1555377480513,
+  }));
+
+  expect(scores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'week',
+    score: 1.01953643,
+    time: 1555377480513,
+  }));
+
+  expect(scores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'global',
+    score: 1.01953643,
+    time: 1555377480513,
+  }));
+
+  expect(scores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'week',
+    score: 1,
+    time: 1555291080513,
+  }));
+
+  expect(scores).toContainEqual(expect.objectContaining({
+    traderID: 'trader1',
+    period: 'global',
+    score: 1,
+    time: 1555291080513,
+  }));
 });

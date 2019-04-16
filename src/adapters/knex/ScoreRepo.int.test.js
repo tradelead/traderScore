@@ -369,14 +369,14 @@ describe('getTradersScoreHistories', () => {
           traderID: 'trader1',
           period: 'day',
           score: 2,
-          time: '2019-02-12T19:33:20.000Z',
+          time: 1550000000000,
         },
         {
           ID: 1,
           traderID: 'trader1',
           period: 'day',
           score: 1,
-          time: '2018-10-20T01:46:40.000Z',
+          time: 1540000000000,
         },
       ],
       [
@@ -385,14 +385,14 @@ describe('getTradersScoreHistories', () => {
           traderID: 'trader2',
           period: 'day',
           score: 4,
-          time: '2019-10-02T07:06:40.000Z',
+          time: 1570000000000,
         },
         {
           ID: 4,
           traderID: 'trader2',
           period: 'day',
           score: 3,
-          time: '2019-06-08T13:20:00.000Z',
+          time: 1560000000000,
         },
       ],
     ]);
