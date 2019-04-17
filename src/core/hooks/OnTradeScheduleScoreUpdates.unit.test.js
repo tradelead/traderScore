@@ -23,7 +23,7 @@ it('calls ScoreUpdateScheduleRepo.schedule for each period', async () => {
 
   const trade = {
     traderID: 'trader1',
-    time: 123,
+    exit: { time: 123 },
   };
 
   deps.events.emit('newTrade', trade);
@@ -31,12 +31,12 @@ it('calls ScoreUpdateScheduleRepo.schedule for each period', async () => {
   expect(deps.scoreUpdateScheduleRepo.schedule).toHaveBeenCalledWith({
     traderID: trade.traderID,
     period: 'day',
-    time: trade.time + (60 * 60 * 24 * 1000),
+    time: trade.exit.time + (60 * 60 * 24 * 1000),
   });
 
   expect(deps.scoreUpdateScheduleRepo.schedule).toHaveBeenCalledWith({
     traderID: trade.traderID,
     period: 'week',
-    time: trade.time + (60 * 60 * 24 * 7 * 1000),
+    time: trade.exit.time + (60 * 60 * 24 * 7 * 1000),
   });
 });
