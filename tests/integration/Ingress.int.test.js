@@ -57,6 +57,7 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
+  mockExchangeService.getFilledOrders.reset();
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
@@ -69,6 +70,7 @@ beforeEach(async () => {
 
   mockExchangeService.getFilledOrders.resolves([]);
 
+  mockExchangeService.getSuccessfulDeposits.reset();
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
@@ -81,6 +83,7 @@ beforeEach(async () => {
 
   mockExchangeService.getSuccessfulDeposits.resolves([]);
 
+  mockExchangeService.getSuccessfulWithdrawals.reset();
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
@@ -93,6 +96,7 @@ beforeEach(async () => {
 
   mockExchangeService.getSuccessfulWithdrawals.resolves([]);
 
+  mockExchangeService.getPrice.reset();
   mockExchangeService.getPrice
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
     .resolves(100);
@@ -107,6 +111,7 @@ beforeEach(async () => {
 
   mockExchangeService.getPrice.resolves(1);
 
+  mockExchangeService.getBTCValue.reset();
   mockExchangeService.getBTCValue
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'BTC', time: defaultOrder.time }))
     .resolves(0.3);
@@ -129,8 +134,10 @@ beforeEach(async () => {
 
   mockExchangeService.getBTCValue.resolves(1);
 
+  mockExchangeService.isRootAsset.reset();
   mockExchangeService.isRootAsset.callsFake(async ({ symbol }) => symbol === 'USDT');
 
+  mockExchangeService.findMarketQuoteAsset.reset();
   mockExchangeService.findMarketQuoteAsset.callsFake(async ({ asset, preferredQuoteAsset }) => {
     if (asset === 'USDT') {
       return 'USDT';
@@ -151,7 +158,6 @@ test('trader\'s first & second exchange ingress', async () => {
   });
 
   const globalScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
-  console.log(globalScores);
   expect(globalScores).toHaveLength(2);
 
   expect(globalScores).toContainEqual(expect.objectContaining({
@@ -169,7 +175,6 @@ test('trader\'s first & second exchange ingress', async () => {
   }));
 
   const weekScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'week' });
-  console.log(weekScores);
   expect(weekScores).toHaveLength(2);
 
   expect(weekScores).toContainEqual(expect.objectContaining({
@@ -187,7 +192,6 @@ test('trader\'s first & second exchange ingress', async () => {
   }));
 
   const dayScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'day' });
-  console.log(dayScores);
   expect(dayScores).toHaveLength(1);
 
   expect(dayScores).toContainEqual(expect.objectContaining({
