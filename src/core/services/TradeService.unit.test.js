@@ -21,6 +21,7 @@ beforeEach(() => {
     tradeRepo: {
       addTrade: sinon.stub(),
       getTrades: sinon.stub(),
+      bulkUpdate: sinon.stub(),
     },
     numRecentTrades: 10,
     scoreService: {
@@ -51,6 +52,7 @@ beforeEach(() => {
     },
     events: new EventEmitter(),
     getEntriesLimitPerFetch: 3,
+    rescoreFetchLimit: 100,
   };
 });
 
@@ -615,6 +617,62 @@ describe('getRecentDailyTradeChangeMean', () => {
       traderID: 'trader1',
       endTime: 1000,
       limit: deps.numRecentTrades,
+    });
+  });
+});
+
+describe('rescoreTrades', () => {
+  let req;
+  let service;
+
+  beforeEach(() => {
+    service = new TradeService(deps);
+  });
+
+  test('calls tradeRepo.getTrades with traderID and rescoreFetchLimit', async () => {
+    await service.rescoreTrades(req);
+
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, {
+      traderID: req.traderID,
+      limit: deps.rescoreFetchLimit,
+    });
+  });
+
+  test('first call to tradeRepo.getTrades with startTime as specified', async () => {
+    await service.rescoreTrades(req);
+
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(0), {
+      startTime: req.startTime,
+    });
+  });
+
+  test('second call to tradeRepo.getTrades with last startTime', async () => {
+    await service.rescoreTrades(req);
+
+    deps.tradeRepo.getTrades.onFirstCall().resolves([new Trade({
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1530000000000,
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 12.12345678,
+    })]);
+
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(0), {
+      startTime: 1540000000000,
     });
   });
 });
