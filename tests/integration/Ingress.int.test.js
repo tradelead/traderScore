@@ -16,10 +16,11 @@ let defaultOrder;
 let defaultDeposit;
 let defaultWithdrawal;
 
+const sampleTime = Date.now();
+
 beforeEach(async () => {
   await flushDbs();
 
-  const sampleTime = 1555377480513;
   defaultOrder = new Order({
     traderID: 'trader1',
     sourceID: 'order1',
@@ -27,7 +28,7 @@ beforeEach(async () => {
     side: 'buy',
     asset: 'ETH',
     quoteAsset: 'USDT',
-    time: sampleTime - (24 * 60 * 60 * 1000),
+    time: sampleTime - (24 * 61 * 60 * 1000),
     quantity: 12.345,
     price: 123.4567,
     fee: {
@@ -41,7 +42,7 @@ beforeEach(async () => {
     sourceID: 'transfer1',
     exchangeID: 'binance',
     asset: 'USDT',
-    time: sampleTime - (2 * 24 * 60 * 60 * 1000),
+    time: sampleTime - (2 * 24 * 61 * 60 * 1000),
     quantity: 1551.0729615,
   });
 
@@ -150,40 +151,43 @@ test('trader\'s first & second exchange ingress', async () => {
   });
 
   const globalScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1' });
+  console.log(globalScores);
   expect(globalScores).toHaveLength(2);
 
   expect(globalScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'global',
     score: 1.10776554,
-    time: 1555377480513,
+    time: sampleTime,
   }));
 
   expect(globalScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'global',
     score: 1,
-    time: 1555291080513,
+    time: sampleTime - (24 * 61 * 60 * 1000),
   }));
 
   const weekScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'week' });
+  console.log(weekScores);
   expect(weekScores).toHaveLength(2);
 
   expect(weekScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'week',
     score: 1.10776554,
-    time: 1555377480513,
+    time: sampleTime,
   }));
 
   expect(weekScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'week',
     score: 1,
-    time: 1555291080513,
+    time: sampleTime - (24 * 61 * 60 * 1000),
   }));
 
   const dayScores = await app.useCases.getTraderScoreHistory({ traderID: 'trader1', period: 'day' });
+  console.log(dayScores);
   expect(dayScores).toHaveLength(1);
 
   expect(dayScores).toContainEqual(expect.objectContaining({
@@ -191,7 +195,7 @@ test('trader\'s first & second exchange ingress', async () => {
     traderID: 'trader1',
     period: 'day',
     score: 1.10776554,
-    time: 1555377480513,
+    time: sampleTime,
   }));
 });
 

@@ -127,6 +127,18 @@ module.exports = class TradeService {
     entry,
     exit,
   }) {
+    console.log('createTradeObj', {
+      sourceID,
+      sourceType,
+      traderID,
+      exchangeID,
+      asset,
+      quoteAsset,
+      quantity,
+      entry,
+      exit,
+    });
+
     const weightPromise = this.tradeWeight({
       traderID,
       exchangeID,
@@ -223,6 +235,22 @@ module.exports = class TradeService {
     weightedOutboundChange = (weightedOutboundChange > 0) ? weightedOutboundChange : 0;
     const score = inboundChange + weightedOutboundChange;
     const weightedScore = score * weight;
+
+    console.log({
+      traderID,
+      tradeChange,
+      entryTime,
+      exitTime,
+      weight,
+      dailyChangeStdDev,
+      dailyChangeMean,
+      tradeDurationDays,
+      outboundChange,
+      inboundChange,
+      weightedOutboundChange,
+      weightedScore,
+      score: weightedScore * 100,
+    });
 
     return weightedScore * 100;
   }

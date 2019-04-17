@@ -16,10 +16,11 @@ let defaultOrder;
 let defaultDeposit;
 let defaultWithdrawal;
 
+const sampleTime = Date.now();
+
 beforeEach(async () => {
   await flushDbs();
 
-  const sampleTime = 1555377480513;
   defaultOrder = new Order({
     traderID: 'trader1',
     sourceID: 'order1',
