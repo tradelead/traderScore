@@ -192,6 +192,19 @@ const moveDueScoreUpdatesQueue = new MoveDueScoreUpdatesQueue({
 });
 
 /**
+ * setup hooks
+ */
+const OnTradeScheduleScoreUpdates = require('./src/core/hooks/OnTradeScheduleScoreUpdates');
+
+const onTradeScheduleScoreUpdates = new OnTradeScheduleScoreUpdates({
+  scoreUpdateScheduleRepo,
+  traderScorePeriodConfig: scorePeriodConfig,
+  events,
+});
+
+onTradeScheduleScoreUpdates.watch();
+
+/**
  * export config
  */
 module.exports = {

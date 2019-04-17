@@ -1,16 +1,22 @@
 const sinon = require('sinon');
 
-const app = require('../../app.bootstrap');
-
 const Order = require('../../src/core/models/Order');
 const Deposit = require('../../src/core/models/Deposit');
 const Withdrawal = require('../../src/core/models/Withdrawal');
 
-const ExchangeService = require('../../src/core/services/ExchangeService');
-
 const flushDbs = require('../flushDBs');
 
+const ExchangeService = require('../../src/core/services/ExchangeService');
+
 jest.mock('../../src/core/services/ExchangeService');
+
+const SQSQueue = require('../../src/adapters/SQSQueue');
+
+const mockSQSQueue = new SQSQueue({});
+
+jest.mock('../../src/adapters/SQSQueue');
+
+const app = require('../../app.bootstrap');
 
 let defaultOrder;
 let defaultDeposit;
@@ -127,10 +133,27 @@ test('due updates are moved to queue', async () => {
     exchangeID: 'binance',
   });
 
-  Date.now = jest.fn();
-  Date.now.mockImplementation(async () => sampleTime + (24 * 60 * 60 * 1000));
+  const { now } = Date;
+  Date.now = jest.fn().mockImplementation(() => sampleTime + (24 * 60 * 60 * 1000));
 
   await app.controllers.moveDueScoreUpdatesQueue();
 
-  // TODO: verify from mock queue
+  expect(mockSQSQueue.push).toHaveBeenCalledWith({
+    traderID: 'trader1',
+    period: 'day',
+  });
+
+  // prevent duplicate score updates
+  expect(mockSQSQueue.push).toHaveBeenCalledTimes(1);
+
+  Date.now = jest.fn().mockImplementation(() => sampleTime + (6 * 24 * 60 * 60 * 1000));
+
+  await app.controllers.moveDueScoreUpdatesQueue();
+
+  expect(mockSQSQueue.push).toHaveBeenCalledWith({
+    traderID: 'trader1',
+    period: 'week',
+  });
+
+  Date.now = now;
 });

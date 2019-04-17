@@ -6,8 +6,16 @@ module.exports = class MoveDueScoreUpdatesQueue {
 
   async execute() {
     const scoreUpdates = await this.scoreUpdateScheduleRepo.fetchDue();
+    const pushedCache = {};
     const promises = scoreUpdates.map(async ({ traderID, period }) => {
-      await this.scoreUpdatesQueue.push({ traderID, period });
+      const key = `${traderID}-${period}`;
+      if (!pushedCache[key]) {
+        pushedCache[key] = true;
+        await this.scoreUpdatesQueue.push({
+          traderID,
+          period,
+        });
+      }
     });
     await Promise.all(promises);
   }

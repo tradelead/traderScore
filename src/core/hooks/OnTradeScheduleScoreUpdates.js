@@ -11,7 +11,7 @@ module.exports = class OnTradeScheduleScoreUpdates {
         this.scoreUpdateScheduleRepo.schedule({
           traderID: trade.traderID,
           period: periodConfig.id,
-          time: trade.time + periodConfig.duration,
+          time: trade.exit.time + periodConfig.duration,
         });
       });
     });
