@@ -621,12 +621,30 @@ describe('getRecentDailyTradeChangeMean', () => {
   });
 });
 
+describe('createTradeObj', () => {
+  test('calls', async () => {
+
+  });
+
+  test('calls', async () => {
+
+  });
+});
+
 describe('rescoreTrades', () => {
   let req;
   let service;
 
   beforeEach(() => {
+    req = {
+      traderID: 'trader1',
+      startTime: Date.now() - (24 * 60 * 60 * 1000),
+    };
     service = new TradeService(deps);
+    sinon.stub(service, 'createTradeObj');
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({ endTime: req.startTime }))
+      .resolves([]);
   });
 
   test('calls tradeRepo.getTrades with traderID and rescoreFetchLimit', async () => {
@@ -635,21 +653,53 @@ describe('rescoreTrades', () => {
     sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, {
       traderID: req.traderID,
       limit: deps.rescoreFetchLimit,
+      sort: 'asc',
     });
   });
 
   test('first call to tradeRepo.getTrades with startTime as specified', async () => {
     await service.rescoreTrades(req);
 
-    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(0), {
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, {
       startTime: req.startTime,
     });
   });
 
   test('second call to tradeRepo.getTrades with last startTime', async () => {
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({ startTime: req.startTime }))
+      .onFirstCall()
+      .resolves([new Trade({
+        traderID: 'trader1',
+        sourceID: 'source1',
+        sourceType: 'order',
+        exchangeID: 'binance',
+        asset: 'BTC',
+        quoteAsset: 'USDT',
+        quantity: 1.12345678,
+        entry: {
+          sourceID: 'source1',
+          sourceType: 'order',
+          price: 12.12345678,
+          time: 1530000000000,
+        },
+        exit: {
+          price: 12.12345678,
+          time: 1540000000000,
+        },
+        weight: 0.5,
+        score: 12.12345678,
+      })]);
+
     await service.rescoreTrades(req);
 
-    deps.tradeRepo.getTrades.onFirstCall().resolves([new Trade({
+    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades, {
+      startTime: 1540000000001,
+    });
+  });
+
+  test('calls createTradeObj with trade', async () => {
+    const trade = new Trade({
       traderID: 'trader1',
       sourceID: 'source1',
       sourceType: 'order',
@@ -669,10 +719,198 @@ describe('rescoreTrades', () => {
       },
       weight: 0.5,
       score: 12.12345678,
-    })]);
+    });
 
-    sinon.assert.calledWithMatch(deps.tradeRepo.getTrades.getCall(0), {
-      startTime: 1540000000000,
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({ startTime: req.startTime }))
+      .onFirstCall()
+      .resolves([trade]);
+
+    await service.rescoreTrades(req);
+
+    sinon.assert.calledWith(service.createTradeObj, trade);
+  });
+
+  test('calls tradeRepo.bulkUpdate with trades', async () => {
+    const trade1 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1530000000000,
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 12.12345678,
+    });
+
+    const trade2 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1530000000000,
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 12.12345678,
+    });
+
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({
+        traderID: req.traderID,
+        limit: deps.rescoreFetchLimit,
+        sort: 'asc',
+      }))
+      .onFirstCall()
+      .resolves([trade1, trade2]);
+
+    service.createTradeObj.withArgs(trade1).resolves(trade1);
+    service.createTradeObj.withArgs(trade2).resolves(trade2);
+
+    await service.rescoreTrades(req);
+
+    sinon.assert.calledWith(deps.tradeRepo.bulkUpdate, {
+      trades: [trade1, trade2],
+    });
+  });
+
+  test('recentDailyStdDev and recentDailyMean calculated and passed to createTradeObj', async () => {
+    const pastTrade1 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source3',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1540000000000 - (24 * 60 * 60 * 1000),
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 10,
+    });
+
+    const pastTrade2 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source4',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1540000000000 - (24 * 60 * 60 * 1000),
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 5,
+    });
+
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({ endTime: req.startTime }))
+      .onFirstCall()
+      .resolves([pastTrade1, pastTrade2]);
+
+    const trade1 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1540000000000 - (24 * 60 * 60 * 1000),
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 15,
+    });
+
+    const trade2 = new Trade({
+      traderID: 'trader1',
+      sourceID: 'source2',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1540000000000 - (24 * 60 * 60 * 1000),
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      weight: 0.5,
+      score: 20,
+    });
+
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({
+        traderID: req.traderID,
+        limit: deps.rescoreFetchLimit,
+        sort: 'asc',
+      }))
+      .onFirstCall()
+      .resolves([trade1, trade2]);
+
+    service.createTradeObj.withArgs(trade1).resolves(trade1);
+    service.createTradeObj.withArgs(trade2).resolves(trade2);
+
+    await service.rescoreTrades(req);
+
+    sinon.assert.calledWithMatch(service.createTradeObj, trade1, {
+      recentDailyStdDev: 2.5,
+      recentDailyMean: 7.5,
+    });
+
+    sinon.assert.calledWithMatch(service.createTradeObj, trade2, {
+      recentDailyStdDev: 5,
+      recentDailyMean: 10,
     });
   });
 });

@@ -21,6 +21,7 @@ module.exports = class TradeService {
   constructor({
     tradeRepo,
     numRecentTrades,
+    rescoreFetchLimit,
     portfolioService,
     exchangeService,
     scoreService,
@@ -31,6 +32,7 @@ module.exports = class TradeService {
   }) {
     this.tradeRepo = tradeRepo;
     this.numRecentTrades = numRecentTrades;
+    this.rescoreFetchLimit = rescoreFetchLimit;
     this.portfolioService = portfolioService;
     this.exchangeService = exchangeService;
     this.scoreService = scoreService;
@@ -274,6 +276,52 @@ module.exports = class TradeService {
     throw new Error('cannot mark source used because source type unknown');
   }
 
+  async rescoreTrades({ traderID, startTime }) {
+    let lastStartTime = startTime;
+
+    const recentTrades = await this.tradeRepo.getTrades({
+      traderID,
+      endTime: startTime,
+      limit: this.numRecentTrades,
+    });
+
+    for (; ;) {
+      const trades = await this.tradeRepo.getTrades({
+        traderID,
+        startTime: lastStartTime,
+        limit: this.rescoreFetchLimit,
+        sort: 'asc',
+      });
+
+      if (!trades || !Array.isArray(trades) || trades.length === 0) {
+        break;
+      }
+
+      lastStartTime = trades[trades.length - 1].exit.time + 1;
+
+      const updatedTrades = [];
+
+      for (let i = 0; i < trades.length; i += 1) {
+        const trade = trades[i];
+
+        const dailyScores = TradeService.calculateDailyScores(recentTrades);
+        const recentDailyStdDev = standardDeviationArr(dailyScores);
+        const recentDailyMean = averageArr(dailyScores);
+
+        const newTrade = await this.createTradeObj(trade, {
+          recentDailyStdDev,
+          recentDailyMean,
+        });
+
+        recentTrades.shift();
+        recentTrades.push(newTrade);
+        updatedTrades.push(newTrade);
+      }
+
+      await this.tradeRepo.bulkUpdate({ trades: updatedTrades });
+    }
+  }
+
   async getRecentDailyTradeChangeStdDev(traderID, exitTime) {
     const dailyScores = await this.getDailyScores(traderID, exitTime);
     if (dailyScores.length === 0) {
@@ -298,6 +346,14 @@ module.exports = class TradeService {
       endTime: exitTime,
       limit: this.numRecentTrades,
     });
+    return TradeService.calculateDailyScores(trades);
+  }
+
+  static calculateDailyScores(trades) {
+    if (!trades || trades.length === 0) {
+      return [];
+    }
+
     return trades.map((trade) => {
       const days = (trade.exit.time - trade.entry.time) / (24 * 60 * 60 * 1000);
       return trade.score / days;
