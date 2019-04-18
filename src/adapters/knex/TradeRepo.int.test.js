@@ -186,13 +186,12 @@ describe('addTrade', () => {
 describe('bulkUpdate', () => {
   it('updates weight & score', async () => {
     let trades = await tradeRepo.getTrades({ traderID: 'trader1' });
-    console.log(trades);
     trades = trades.map(trade => Object.assign({}, trade, { weight: 0.123, score: 12.3 }));
 
     await tradeRepo.bulkUpdate({ trades });
 
     const updatedTrades = await tradeRepo.getTrades({ traderID: 'trader1' });
-    console.log(updatedTrades);
+
     updatedTrades.forEach((trade) => {
       expect(trade).toMatchObject({ weight: 0.123, score: 12.3 });
     });
