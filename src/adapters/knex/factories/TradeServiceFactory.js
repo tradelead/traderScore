@@ -3,6 +3,7 @@ const TradeService = require('../../../core/services/TradeService');
 module.exports = class TradeServiceFactory {
   constructor({
     numRecentTrades,
+    rescoreFetchLimit,
     tradeRepoFactory,
     exchangeService,
     portfolioServiceFactory,
@@ -12,6 +13,7 @@ module.exports = class TradeServiceFactory {
     entryServiceFactory,
   }) {
     this.numRecentTrades = numRecentTrades;
+    this.rescoreFetchLimit = rescoreFetchLimit;
     this.exchangeService = exchangeService;
     this.tradeRepoFactory = tradeRepoFactory;
     this.portfolioServiceFactory = portfolioServiceFactory;
@@ -24,6 +26,7 @@ module.exports = class TradeServiceFactory {
   create(req) {
     const newReq = Object.assign({}, req);
     newReq.numRecentTrades = this.numRecentTrades;
+    newReq.rescoreFetchLimit = this.rescoreFetchLimit;
     newReq.exchangeService = this.exchangeService;
     newReq.tradeRepo = this.tradeRepoFactory.create(req);
     newReq.portfolioService = this.portfolioServiceFactory.create(req);

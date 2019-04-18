@@ -19,15 +19,23 @@ module.exports = class TradeRepo {
 
   async getTrades({
     traderID,
+    exchangeID,
     startTime,
     endTime,
     limit,
     sort,
   }) {
+    const filters = {
+      traderID,
+      exchangeID,
+    };
+    // remove undefined
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
     const query = this.knexConn
       .select()
       .from(this.tableName)
-      .where({ traderID });
+      .where(filters);
 
     if (startTime) {
       query.andWhere('exitTime', '>=', msToMySQLFormat(startTime));
@@ -44,7 +52,34 @@ module.exports = class TradeRepo {
   }
 
   async addTrade(trade) {
-    const dbObj = {
+    const dbObj = TradeRepo.tradeToDBRow(trade);
+
+    const [ID] = await this.knexConn.insert(dbObj, ['ID']).into(this.tableName);
+
+    return ID;
+  }
+
+  async bulkUpdate({ trades }) {
+    const columns = Object.keys(TradeRepo.tradeToDBRow(trades[0]));
+
+    const bulkUpdateQuery = [
+      `INSERT INTO ${this.tableName} (${columns.join(', ')}) VALUES`,
+      trades.map(() => '(?)').join(','),
+      'ON DUPLICATE KEY UPDATE',
+      'weight = VALUES(weight),',
+      'score = VALUES(score)',
+    ].join(' ');
+
+    const values = [];
+
+    trades.map(trade => values.push(Object.values(TradeRepo.tradeToDBRow(trade))));
+
+    await this.knexConn.raw(bulkUpdateQuery, values);
+  }
+
+  static tradeToDBRow(trade) {
+    return {
+      ID: trade.ID,
       traderID: trade.traderID,
       exchangeID: trade.exchangeID,
       asset: trade.asset,
@@ -61,10 +96,6 @@ module.exports = class TradeRepo {
       exitTime: msToMySQLFormat(trade.exit.time),
       exitPrice: trade.exit.price,
     };
-
-    const [ID] = await this.knexConn.insert(dbObj, ['ID']).into(this.tableName);
-
-    return ID;
   }
 
   static dbRowToTrade(row) {

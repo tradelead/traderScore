@@ -75,6 +75,7 @@ module.exports = class IngressFilledOrder {
         asset: tradeAsset,
         exitQuantity: tradeQty,
         exitTime: order.time,
+        disableScoring: value.past,
         incrementScores: !value.past,
       });
 

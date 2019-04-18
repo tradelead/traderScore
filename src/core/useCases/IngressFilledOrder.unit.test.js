@@ -146,6 +146,16 @@ describe('execute', () => {
       expect(newTradeArg).toHaveProperty('incrementScores', false);
     });
 
+    test('called with disableScoring when past', async () => {
+      const useCase = new IngressFilledOrder(deps);
+      const req = Object.assign({}, defaultReq);
+      req.past = true;
+      await useCase.execute(req);
+
+      const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+      expect(newTradeArg).toHaveProperty('disableScoring', true);
+    });
+
     test('buy order called with order quantity * price (with arithmetic precision) as exitQuantity', async () => {
       const useCase = new IngressFilledOrder(deps);
       const req = Object.assign({}, defaultReq);

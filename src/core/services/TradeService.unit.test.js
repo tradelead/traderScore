@@ -271,6 +271,29 @@ describe('newTrade', () => {
     sinon.assert.callCount(deps.scoreService.incrementScores, 1);
   });
 
+  it('doesn\'t call score or tradeWeight when scoring disabled', async () => {
+    sinon.stub(service, 'score');
+    sinon.stub(service, 'tradeWeight');
+
+    const req = Object.assign({}, defaultReq, {
+      disableScoring: true,
+    });
+    await service.newTrade(req);
+
+    sinon.assert.notCalled(service.score);
+    sinon.assert.notCalled(service.tradeWeight);
+  });
+
+  it('calls score or tradeWeight when scoring enabled', async () => {
+    sinon.stub(service, 'score').resolves(0);
+    sinon.stub(service, 'tradeWeight').resolves(0);
+
+    await service.newTrade(defaultReq);
+
+    sinon.assert.called(service.score);
+    sinon.assert.called(service.tradeWeight);
+  });
+
   describe('data validation', () => {
     test('invalid request throws BadRequest', async () => {
       const useCase = new TradeService({});
@@ -725,6 +748,22 @@ describe('createTradeObj', () => {
       score: 123,
     })));
   });
+
+  test('when disableScoring, doesn\'t call tradeWeight or score', async () => {
+    req.disableScoring = true;
+    const trade = await service.createTradeObj(req);
+
+    sinon.assert.notCalled(service.tradeWeight);
+    sinon.assert.notCalled(service.score);
+
+    delete req.dailyChangeStdDev;
+    delete req.dailyChangeMean;
+    delete req.disableScoring;
+    expect(trade).toEqual(new Trade(Object.assign({}, req, {
+      weight: 0,
+      score: 0,
+    })));
+  });
 });
 
 describe('rescoreTrades', () => {
@@ -1006,7 +1045,7 @@ describe('rescoreTrades', () => {
     }));
 
     sinon.assert.calledWithMatch(service.createTradeObj, Object.assign({}, trade2, {
-      dailyChangeStdDev: 5,
+      dailyChangeStdDev: 4.08248290463863,
       dailyChangeMean: 10,
     }));
   });

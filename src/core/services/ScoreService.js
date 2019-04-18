@@ -139,6 +139,7 @@ module.exports = class ScoreService {
 
       const calcBulkUpdateScores = (trade) => {
         score = compoundScore(score, trade.score);
+
         return {
           traderID,
           period,

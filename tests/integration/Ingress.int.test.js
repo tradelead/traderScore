@@ -163,7 +163,7 @@ test('trader\'s first & second exchange ingress', async () => {
   expect(globalScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'global',
-    score: 1.10776554,
+    score: 1.097152,
     time: sampleTime,
   }));
 
@@ -180,7 +180,7 @@ test('trader\'s first & second exchange ingress', async () => {
   expect(weekScores).toContainEqual(expect.objectContaining({
     traderID: 'trader1',
     period: 'week',
-    score: 1.10776554,
+    score: 1.097152,
     time: sampleTime,
   }));
 
@@ -198,7 +198,7 @@ test('trader\'s first & second exchange ingress', async () => {
     ID: expect.anything(),
     traderID: 'trader1',
     period: 'day',
-    score: 1.10776554,
+    score: 1.097152,
     time: sampleTime,
   }));
 });

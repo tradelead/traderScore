@@ -49,6 +49,7 @@ module.exports = class IngressWithdrawal {
         asset: value.asset,
         exitQuantity: value.quantity,
         exitTime: value.time,
+        disableScoring: value.past,
         incrementScores: !value.past,
       });
 

@@ -47,8 +47,29 @@ const defaultWithdrawal = new Withdrawal({
 });
 
 let deps = {};
+let unitOfWork;
+let unitOfWorkFactory;
 
 beforeEach(() => {
+  unitOfWork = {
+    tradeService: {
+      getTrades: sinon.stub(),
+      rescoreTrades: sinon.stub(),
+    },
+    scoreService: {
+      calculateScores: sinon.stub(),
+    },
+    exchangeIngressRepo: {
+      markComplete: sinon.stub(),
+    },
+    complete: sinon.stub(),
+    rollback: sinon.stub(),
+  };
+
+  unitOfWorkFactory = {
+    create: async () => unitOfWork,
+  };
+
   deps = {
     exchangeActivityLimitPerFetch: 3,
     ingressDeposit: { execute: sinon.stub() },
@@ -69,12 +90,7 @@ beforeEach(() => {
     exchangeWatchRepo: {
       add: sinon.stub(),
     },
-    exchangeIngressRepo: {
-      markComplete: sinon.stub(),
-    },
-    scoreService: {
-      calculateScores: sinon.stub(),
-    },
+    unitOfWorkFactory,
   };
 
   deps.ingressDeposit.execute.resolves(null);
@@ -98,7 +114,7 @@ beforeEach(() => {
 
   deps.exchangeWatchRepo.add.resolves(true);
 
-  deps.exchangeIngressRepo.markComplete.resolves(true);
+  unitOfWork.exchangeIngressRepo.markComplete.resolves(true);
 });
 
 describe('exchangeService.getFilledOrders', () => {
@@ -560,13 +576,50 @@ describe('ingress activity', () => {
   });
 });
 
+describe('rescoreTrades', () => {
+  it('calls with startTime as exchange first trade exit time', async () => {
+    unitOfWork.tradeService.getTrades
+      .withArgs({
+        traderID: defaultReq.traderID,
+        exchangeID: defaultReq.exchangeID,
+        limit: 1,
+        sort: 'asc',
+      })
+      .resolves([{ exit: { time: 123 } }]);
+
+    // run
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    // assert
+    sinon.assert.calledWithMatch(unitOfWork.tradeService.rescoreTrades, {
+      startTime: 123,
+    });
+  });
+
+  it('calls with traderID', async () => {
+    unitOfWork.tradeService.getTrades.resolves([{ exit: { time: 123 } }]);
+
+    // run
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    // assert
+    sinon.assert.calledWithMatch(unitOfWork.tradeService.rescoreTrades, {
+      traderID: defaultReq.traderID,
+    });
+  });
+});
+
 test('calculates trader scores', async () => {
   // run
   const useCase = new IngressTraderExchange(deps);
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.scoreService.calculateScores, { traderID: defaultReq.traderID });
+  sinon.assert.calledWith(unitOfWork.scoreService.calculateScores, {
+    traderID: defaultReq.traderID,
+  });
 });
 
 test('calculate trader scores if trader has no other exchanges', async () => {
@@ -575,11 +628,13 @@ test('calculate trader scores if trader has no other exchanges', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.scoreService.calculateScores, { traderID: defaultReq.traderID });
+  sinon.assert.calledWith(unitOfWork.scoreService.calculateScores, {
+    traderID: defaultReq.traderID,
+  });
 });
 
 test('rejects if scoreService.calculateScores errors', async () => {
-  deps.scoreService.calculateScores.rejects();
+  unitOfWork.scoreService.calculateScores.rejects();
 
   const useCase = new IngressTraderExchange(deps);
 
@@ -592,18 +647,64 @@ test('calls exchangeIngressRepo markComplete', async () => {
   await useCase.execute(defaultReq);
 
   // assert
-  sinon.assert.calledWith(deps.exchangeIngressRepo.markComplete, {
+  sinon.assert.calledWith(unitOfWork.exchangeIngressRepo.markComplete, {
     traderID: defaultReq.traderID,
     exchangeID: defaultReq.exchangeID,
   });
 });
 
 test('rejects if exchangeIngressRepo.markComplete errors', async () => {
-  deps.exchangeIngressRepo.markComplete.rejects();
+  unitOfWork.exchangeIngressRepo.markComplete.rejects();
 
   const useCase = new IngressTraderExchange(deps);
 
   return expect(useCase.execute(defaultReq)).rejects.toThrow();
+});
+
+describe('unitOfWork', () => {
+  it('calls complete', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.called(unitOfWork.complete);
+  });
+
+  it('rolls back when tradeService.getTrades rejects', async () => {
+    unitOfWork.tradeService.getTrades.rejects();
+
+    const useCase = new IngressTraderExchange(deps);
+    await expect(useCase.execute(defaultReq)).rejects.toThrow();
+
+    sinon.assert.called(unitOfWork.rollback);
+  });
+
+  it('rolls back when tradeService.rescoreTrades rejects', async () => {
+    unitOfWork.tradeService.getTrades.resolves([{ exit: { time: 123 } }]);
+    unitOfWork.tradeService.rescoreTrades.rejects();
+
+    const useCase = new IngressTraderExchange(deps);
+    await expect(useCase.execute(defaultReq)).rejects.toThrow();
+
+    sinon.assert.called(unitOfWork.rollback);
+  });
+
+  it('rolls back when scoreService.calculateScores rejects', async () => {
+    unitOfWork.scoreService.calculateScores.rejects();
+
+    const useCase = new IngressTraderExchange(deps);
+    await expect(useCase.execute(defaultReq)).rejects.toThrow();
+
+    sinon.assert.called(unitOfWork.rollback);
+  });
+
+  it('rolls back when exchangeIngressRepo.markComplete rejects', async () => {
+    unitOfWork.exchangeIngressRepo.markComplete.rejects();
+
+    const useCase = new IngressTraderExchange(deps);
+    await expect(useCase.execute(defaultReq)).rejects.toThrow();
+
+    sinon.assert.called(unitOfWork.rollback);
+  });
 });
 
 describe('data validation', () => {

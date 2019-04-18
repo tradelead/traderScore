@@ -44,6 +44,7 @@ beforeEach(async () => {
     }),
     Object.assign({}, defaultDbObj, {
       exitSourceID: 'source2',
+      exchangeID: 'bittrex',
       exitTime: msToMySQLFormat(1560000000000),
       score: 121.23,
     }),
@@ -117,6 +118,12 @@ describe('getTrades', () => {
     expect(exitSourceIDs).toEqual(['source1', 'source2', 'source3']);
   });
 
+  test('exchangeID filter', async () => {
+    const trades = await tradeRepo.getTrades({ traderID: 'trader1', exchangeID: 'bittrex' });
+    const exitSourceIDs = trades.map(trade => trade.sourceID);
+    expect(exitSourceIDs).toEqual(['source2']);
+  });
+
   test('startTime filter', async () => {
     const trades = await tradeRepo.getTrades({ traderID: 'trader1', startTime: 1560000000000 });
     const exitSourceIDs = trades.map(trade => trade.sourceID);
@@ -173,5 +180,21 @@ describe('addTrade', () => {
 
     const [dbRow] = await knex(tableName).select().where({ ID: id });
     expect(TradeRepo.dbRowToTrade(dbRow)).toEqual(trade);
+  });
+});
+
+describe('bulkUpdate', () => {
+  it('updates weight & score', async () => {
+    let trades = await tradeRepo.getTrades({ traderID: 'trader1' });
+    console.log(trades);
+    trades = trades.map(trade => Object.assign({}, trade, { weight: 0.123, score: 12.3 }));
+
+    await tradeRepo.bulkUpdate({ trades });
+
+    const updatedTrades = await tradeRepo.getTrades({ traderID: 'trader1' });
+    console.log(updatedTrades);
+    updatedTrades.forEach((trade) => {
+      expect(trade).toMatchObject({ weight: 0.123, score: 12.3 });
+    });
   });
 });

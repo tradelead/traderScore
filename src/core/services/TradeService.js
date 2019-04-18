@@ -1,4 +1,4 @@
-const debug = require('debug')('traderScore:TradeService');
+// const debug = require('debug')('traderScore:TradeService');
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 const VError = require('verror');
@@ -14,6 +14,7 @@ const schema = Joi.object().keys({
   asset: Joi.string().min(2).max(8).required().label('Asset'),
   exitQuantity: Joi.number().greater(0).required().label('Exit Quantity'),
   exitTime: Joi.number().integer().greater(0).required().label('Exit Time'),
+  disableScoring: Joi.boolean().default(false).label('Disable Scoring'),
   incrementScores: Joi.boolean().default(true).label('Increment Scores'),
 });
 
@@ -50,9 +51,6 @@ module.exports = class TradeService {
       throw new VError({ name: 'BadRequest', info: req }, humanErr);
     }
 
-    const unitDebug = debug.extend(`${value.traderID}-${value.sourceID}`);
-    unitDebug('start');
-
     const entries = await this.entryService.getEntries({
       traderID: value.traderID,
       exchangeID: value.exchangeID,
@@ -60,17 +58,13 @@ module.exports = class TradeService {
       qty: value.exitQuantity,
       exitTime: value.exitTime,
     });
-    unitDebug('get entries');
 
-    const tradePromises = entries.map(async (entry) => {
-      const trade = await this.createTradeFromEntry({ req: value, entry });
-      unitDebug('created trade from entry %o', entry);
-      return trade;
-    });
+    const tradePromises = entries.map(async entry => this.createTradeFromEntry(
+      { req: value, entry },
+    ));
     const trades = await Promise.all(tradePromises);
 
     await Promise.all(trades.map(trade => this.addTrade(trade)));
-    unitDebug('trades added');
 
     if (value.incrementScores) {
       // eslint-disable-next-line no-restricted-syntax
@@ -82,7 +76,6 @@ module.exports = class TradeService {
         });
       }
     }
-    unitDebug('scores incremented');
 
     return trades;
   }
@@ -131,30 +124,36 @@ module.exports = class TradeService {
     exit,
     dailyChangeMean,
     dailyChangeStdDev,
+    disableScoring,
   }) {
-    const weightPromise = this.tradeWeight({
-      traderID,
-      exchangeID,
-      asset,
-      quoteAsset,
-      quantity,
-      entryTime: entry.time,
-      exitTime: exit.time,
-      exitPrice: exit.price,
-    });
+    let weight = 0;
+    let score = 0;
 
-    const weight = await weightPromise;
-    const tradeChange = (exit.price / entry.price) - 1;
+    if (!disableScoring) {
+      const weightPromise = this.tradeWeight({
+        traderID,
+        exchangeID,
+        asset,
+        quoteAsset,
+        quantity,
+        entryTime: entry.time,
+        exitTime: exit.time,
+        exitPrice: exit.price,
+      });
 
-    const score = await this.score({
-      traderID,
-      weight,
-      tradeChange,
-      entryTime: entry.time,
-      exitTime: exit.time,
-      dailyChangeMeanDefault: dailyChangeMean,
-      dailyChangeStdDevDefault: dailyChangeStdDev,
-    });
+      weight = await weightPromise;
+      const tradeChange = (exit.price / entry.price) - 1;
+
+      score = await this.score({
+        traderID,
+        weight,
+        tradeChange,
+        entryTime: entry.time,
+        exitTime: exit.time,
+        dailyChangeMeanDefault: dailyChangeMean,
+        dailyChangeStdDevDefault: dailyChangeStdDev,
+      });
+    }
 
     return new Trade({
       ID,
@@ -328,7 +327,9 @@ module.exports = class TradeService {
           dailyChangeMean,
         }));
 
-        recentTrades.shift();
+        if (recentTrades.length >= this.rescoreFetchLimit) {
+          recentTrades.shift();
+        }
         recentTrades.push(newTrade);
         updatedTrades.push(newTrade);
       }

@@ -19,7 +19,7 @@ const schema = Joi.object().keys({
     price: Joi.number().positive().required().label('Exit Price'),
     time: Joi.number().positive().required().label('Exit Time'),
   }),
-  weight: Joi.number().greater(0).max(1).required().label('Weight'),
+  weight: Joi.number().min(0).max(1).required().label('Weight'),
   score: Joi.number().required().label('Score'),
 });
 

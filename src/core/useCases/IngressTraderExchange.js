@@ -1,4 +1,4 @@
-const debug = require('debug')('traderScore:IngressTraderExchange');
+// const debug = require('debug')('traderScore:IngressTraderExchange');
 const Joi = require('joi');
 
 const requestSchema = Joi.object().keys({
@@ -15,8 +15,7 @@ module.exports = class IngressTraderExchange {
     orderService,
     transferService,
     exchangeActivityLimitPerFetch,
-    exchangeIngressRepo,
-    scoreService,
+    unitOfWorkFactory,
   }) {
     this.ingressDeposit = ingressDeposit;
     this.ingressFilledOrder = ingressFilledOrder;
@@ -25,8 +24,7 @@ module.exports = class IngressTraderExchange {
     this.orderService = orderService;
     this.transferService = transferService;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
-    this.exchangeIngressRepo = exchangeIngressRepo;
-    this.scoreService = scoreService;
+    this.unitOfWorkFactory = unitOfWorkFactory;
   }
 
   async execute(req) {
@@ -41,40 +39,31 @@ module.exports = class IngressTraderExchange {
 
     const { traderID, exchangeID } = value;
 
-    const timeDebug = debug.extend(`${traderID}-${exchangeID}`);
-
-    timeDebug('start: get last order');
     const lastOrders = await this.orderService.getFilledOrders({
       traderID,
       exchangeID,
       limit: 1,
       sort: 'desc',
     });
-    timeDebug('finished: get last order');
     const ordersStartTime = (lastOrders && lastOrders.length > 0 ? lastOrders[0].time : 0);
 
-    timeDebug('start: get last deposit');
     const lastDeposits = await this.transferService.findDeposits({
       traderID,
       exchangeID,
       limit: 1,
       sort: 'desc',
     });
-    timeDebug('finished: get last deposit');
     const depositsStartTime = (lastDeposits && lastDeposits.length > 0 ? lastDeposits[0].time : 0);
 
-    timeDebug('start: get last withdrawal');
     const lastWithdraws = await this.transferService.findWithdrawals({
       traderID,
       exchangeID,
       limit: 1,
       sort: 'desc',
     });
-    timeDebug('finished: get last withdrawal');
     const hasWithdraws = lastWithdraws && lastWithdraws.length > 0;
     const withdrawalsStartTime = (hasWithdraws ? lastWithdraws[0].time : 0);
 
-    timeDebug('start ingressActivity');
     await this.ingressActivity({
       firstRun: true,
       activity: [],
@@ -87,15 +76,30 @@ module.exports = class IngressTraderExchange {
       traderID,
       exchangeID,
     });
-    timeDebug('finished ingressActivity');
 
-    timeDebug('start calculateScores');
-    await this.scoreService.calculateScores({ traderID });
-    timeDebug('finished calculateScores');
+    const unitOfWork = await this.unitOfWorkFactory.create();
 
-    timeDebug('start exchangeIngressRepo.markComplete');
-    await this.exchangeIngressRepo.markComplete({ traderID, exchangeID });
-    timeDebug('finished exchangeIngressRepo.markComplete');
+    try {
+      const trades = await unitOfWork.tradeService.getTrades({
+        traderID,
+        exchangeID,
+        limit: 1,
+        sort: 'asc',
+      });
+
+      if (trades && Array.isArray(trades) && trades[0].exit && trades[0].exit.time > 0) {
+        await unitOfWork.tradeService.rescoreTrades({ traderID, startTime: trades[0].exit.time });
+      }
+
+      await unitOfWork.scoreService.calculateScores({ traderID });
+
+      await unitOfWork.exchangeIngressRepo.markComplete({ traderID, exchangeID });
+
+      await unitOfWork.complete();
+    } catch (e) {
+      unitOfWork.rollback();
+      throw e;
+    }
 
     return true;
   }

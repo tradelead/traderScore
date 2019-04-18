@@ -22,6 +22,7 @@ const getEntriesLimitPerFetch = parseInt(process.env.ENTRIES_FETCH_LIMIT, 10) ||
 const tradeFetchLimit = parseInt(process.env.TRADE_FETCH_LIMIT, 10) || 100;
 const scorePeriodConfig = JSON.parse(process.env.SCORE_PERIOD_CONFIG);
 const numRecentTrades = parseInt(process.env.SCORE_RECENT_TRADES_NUM, 10) || 100;
+const rescoreFetchLimit = parseInt(process.env.RESCORE_TRADES_FETCH_LIMIT, 10) || 100;
 const scoreUpdatesQueueUrl = process.env.SCORE_UPDATES_QUEUE_URL;
 
 /**
@@ -93,7 +94,6 @@ const scoreServiceFactory = new ScoreServiceFactory({
   tradeRepoFactory,
   tradeFetchLimit,
 });
-const scoreService = scoreServiceFactory.create({ knexConn: knex });
 
 const entryServiceFactory = new EntryServiceFactory({
   getEntriesLimitPerFetch,
@@ -104,6 +104,7 @@ const entryServiceFactory = new EntryServiceFactory({
 
 const tradeServiceFactory = new TradeServiceFactory({
   numRecentTrades,
+  rescoreFetchLimit,
   tradeRepoFactory,
   exchangeService,
   portfolioServiceFactory,
@@ -166,6 +167,15 @@ const withdrawalUOWFactory = new UnitOfWorkFactory({
 });
 const ingressWithdrawal = new IngressWithdrawal({ unitOfWorkFactory: withdrawalUOWFactory });
 
+const ingressExchangeUOWFactory = new UnitOfWorkFactory({
+  knex,
+  events,
+  serviceFactories: {
+    scoreService: scoreServiceFactory,
+    tradeService: tradeServiceFactory,
+    exchangeIngressRepo: exchangeIngressRepoFactory,
+  },
+});
 const ingressTraderExchange = new IngressTraderExchange({
   ingressDeposit,
   ingressFilledOrder,
@@ -174,8 +184,7 @@ const ingressTraderExchange = new IngressTraderExchange({
   orderService,
   transferService,
   exchangeActivityLimitPerFetch: exchangeActivityFetchLimit,
-  exchangeIngressRepo,
-  scoreService,
+  unitOfWorkFactory: ingressExchangeUOWFactory,
 });
 
 const removeTraderExchange = new RemoveTraderExchange({ exchangeIngressRepo });

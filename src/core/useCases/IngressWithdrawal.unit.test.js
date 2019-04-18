@@ -147,6 +147,16 @@ describe('new trade', () => {
     expect(newTradeArg).toHaveProperty('incrementScores', false);
   });
 
+  test('called with disableScoring as true if past is true', async () => {
+    const useCase = new IngressWithdrawal(deps);
+    const req = Object.assign({}, defaultReq);
+    req.past = true;
+    await useCase.execute(req);
+
+    const newTradeArg = unitOfWork.tradeService.newTrade.getCall(0).args[0];
+    expect(newTradeArg).toHaveProperty('disableScoring', true);
+  });
+
   test('called with withdrawal quantity as exitQuantity', async () => {
     const useCase = new IngressWithdrawal(deps);
     const req = Object.assign({}, defaultReq);
