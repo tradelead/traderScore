@@ -119,6 +119,7 @@ module.exports = class TradeService {
   }
 
   async createTradeObj({
+    ID,
     sourceID,
     sourceType,
     traderID,
@@ -128,6 +129,8 @@ module.exports = class TradeService {
     quantity,
     entry,
     exit,
+    dailyChangeMean,
+    dailyChangeStdDev,
   }) {
     const weightPromise = this.tradeWeight({
       traderID,
@@ -149,9 +152,12 @@ module.exports = class TradeService {
       tradeChange,
       entryTime: entry.time,
       exitTime: exit.time,
+      dailyChangeMeanDefault: dailyChangeMean,
+      dailyChangeStdDevDefault: dailyChangeStdDev,
     });
 
     return new Trade({
+      ID,
       traderID,
       exchangeID,
       sourceID,
@@ -197,17 +203,26 @@ module.exports = class TradeService {
     entryTime,
     exitTime,
     weight,
+    dailyChangeStdDevDefault,
+    dailyChangeMeanDefault,
   }) {
-    // Standard deviation of all the trader's exclusive trade change per day.
-    // Exclusive change is the trade change minus the market change for that period.
-    const stdDevProm = this.getRecentDailyTradeChangeStdDev(traderID, exitTime);
-    const meanProm = this.getRecentDailyTradeChangeMean(traderID, exitTime);
+    let dailyChangeStdDev = dailyChangeStdDevDefault;
+    let dailyChangeMean = dailyChangeMeanDefault;
 
-    let dailyChangeStdDev = await stdDevProm;
-    dailyChangeStdDev = dailyChangeStdDev > 0 ? dailyChangeStdDev : 0;
-
-    let dailyChangeMean = await meanProm;
-    dailyChangeMean = dailyChangeMean > 0 ? dailyChangeMean : 0;
+    await Promise.all([
+      (async () => {
+        if (dailyChangeStdDevDefault == null) {
+          dailyChangeStdDev = await this.getRecentDailyTradeChangeStdDev(traderID, exitTime);
+          dailyChangeStdDev = dailyChangeStdDev > 0 ? dailyChangeStdDev : 0;
+        }
+      })(),
+      (async () => {
+        if (dailyChangeMeanDefault == null) {
+          dailyChangeMean = await this.getRecentDailyTradeChangeMean(traderID, exitTime);
+          dailyChangeMean = dailyChangeMean > 0 ? dailyChangeMean : 0;
+        }
+      })(),
+    ]);
 
     const exitTimeNum = new BigNumber(exitTime);
     const tradeDuration = exitTimeNum.minus(entryTime);
@@ -293,6 +308,7 @@ module.exports = class TradeService {
         sort: 'asc',
       });
 
+      // if no more trades break loop
       if (!trades || !Array.isArray(trades) || trades.length === 0) {
         break;
       }
@@ -303,15 +319,14 @@ module.exports = class TradeService {
 
       for (let i = 0; i < trades.length; i += 1) {
         const trade = trades[i];
-
         const dailyScores = TradeService.calculateDailyScores(recentTrades);
-        const recentDailyStdDev = standardDeviationArr(dailyScores);
-        const recentDailyMean = averageArr(dailyScores);
+        const dailyChangeStdDev = standardDeviationArr(dailyScores);
+        const dailyChangeMean = averageArr(dailyScores);
 
-        const newTrade = await this.createTradeObj(trade, {
-          recentDailyStdDev,
-          recentDailyMean,
-        });
+        const newTrade = await this.createTradeObj(Object.assign({}, trade, {
+          dailyChangeStdDev,
+          dailyChangeMean,
+        }));
 
         recentTrades.shift();
         recentTrades.push(newTrade);

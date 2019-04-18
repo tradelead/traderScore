@@ -470,6 +470,36 @@ describe('score', () => {
       req.exitTime,
     );
   });
+
+  it('doesn\'t call getRecentDailyTradeChangeStdDev if dailyChangeStdDev passed', async () => {
+    const score = await service.score({
+      traderID: 'trader123',
+      tradeChange: -0.05,
+      entryTime: Date.now() - (60 * 60 * 24 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+      dailyChangeStdDevDefault: 0.01,
+    });
+
+    sinon.assert.notCalled(service.getRecentDailyTradeChangeStdDev);
+
+    expect(score).toBe(-2.5);
+  });
+
+  it('doesn\'t call getRecentDailyTradeChangeMean if dailyChangeMean passed', async () => {
+    const score = await service.score({
+      traderID: 'trader123',
+      tradeChange: -0.05,
+      entryTime: Date.now() - (60 * 60 * 24 * 1000),
+      exitTime: Date.now(),
+      weight: 0.5,
+      dailyChangeMeanDefault: 0.03,
+    });
+
+    sinon.assert.notCalled(service.getRecentDailyTradeChangeMean);
+
+    expect(score).toBe(-2.5);
+  });
 });
 
 describe('addTrade', () => {
@@ -622,12 +652,78 @@ describe('getRecentDailyTradeChangeMean', () => {
 });
 
 describe('createTradeObj', () => {
-  test('calls', async () => {
+  let req;
+  let service;
 
+  beforeEach(() => {
+    req = {
+      ID: '123',
+      traderID: 'trader1',
+      sourceID: 'source1',
+      sourceType: 'order',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quoteAsset: 'USDT',
+      quantity: 1.12345678,
+      entry: {
+        sourceID: 'source1',
+        sourceType: 'order',
+        price: 12.12345678,
+        time: 1530000000000,
+      },
+      exit: {
+        price: 12.12345678,
+        time: 1540000000000,
+      },
+      dailyChangeStdDev: 10,
+      dailyChangeMean: 5,
+    };
+
+    service = new TradeService(deps);
+    sinon.stub(service, 'tradeWeight').resolves(0.5);
+    sinon.stub(service, 'score').resolves(123);
+
+    deps.tradeRepo.getTrades
+      .withArgs(sinon.match({ endTime: req.startTime }))
+      .resolves([]);
   });
 
-  test('calls', async () => {
+  it('calls tradeWeight with correct params', async () => {
+    await service.createTradeObj(req);
+    sinon.assert.calledWithMatch(service.tradeWeight, {
+      traderID: req.traderID,
+      exchangeID: req.exchangeID,
+      asset: req.asset,
+      quoteAsset: req.quoteAsset,
+      quantity: req.quantity,
+      entryTime: req.entry.time,
+      exitTime: req.exit.time,
+      exitPrice: req.exit.price,
+    });
+  });
 
+  it('calls score with weight, tradeChange, traderID, entryTime, exitTime, dailyChangeStdDev, dailyChangeMean', async () => {
+    await service.createTradeObj(req);
+    sinon.assert.calledWithMatch(service.score, {
+      traderID: req.traderID,
+      weight: 0.5,
+      tradeChange: (req.exit.price / req.entry.price) - 1,
+      entryTime: req.entry.time,
+      exitTime: req.exit.time,
+      dailyChangeStdDevDefault: req.dailyChangeStdDev,
+      dailyChangeMeanDefault: req.dailyChangeMean,
+    });
+  });
+
+  it('returns Trade', async () => {
+    const trade = await service.createTradeObj(req);
+
+    delete req.dailyChangeStdDev;
+    delete req.dailyChangeMean;
+    expect(trade).toEqual(new Trade(Object.assign({}, req, {
+      weight: 0.5,
+      score: 123,
+    })));
   });
 });
 
@@ -642,6 +738,7 @@ describe('rescoreTrades', () => {
     };
     service = new TradeService(deps);
     sinon.stub(service, 'createTradeObj');
+
     deps.tradeRepo.getTrades
       .withArgs(sinon.match({ endTime: req.startTime }))
       .resolves([]);
@@ -728,7 +825,7 @@ describe('rescoreTrades', () => {
 
     await service.rescoreTrades(req);
 
-    sinon.assert.calledWith(service.createTradeObj, trade);
+    sinon.assert.calledWithMatch(service.createTradeObj, trade);
   });
 
   test('calls tradeRepo.bulkUpdate with trades', async () => {
@@ -785,17 +882,17 @@ describe('rescoreTrades', () => {
       .onFirstCall()
       .resolves([trade1, trade2]);
 
-    service.createTradeObj.withArgs(trade1).resolves(trade1);
-    service.createTradeObj.withArgs(trade2).resolves(trade2);
+    service.createTradeObj.withArgs(sinon.match(trade1)).resolves(trade1);
+    service.createTradeObj.withArgs(sinon.match(trade2)).resolves(trade2);
 
     await service.rescoreTrades(req);
 
-    sinon.assert.calledWith(deps.tradeRepo.bulkUpdate, {
+    sinon.assert.calledWithMatch(deps.tradeRepo.bulkUpdate, {
       trades: [trade1, trade2],
     });
   });
 
-  test('recentDailyStdDev and recentDailyMean calculated and passed to createTradeObj', async () => {
+  test('dailyChangeStdDev and dailyChangeMean calculated and passed to createTradeObj', async () => {
     const pastTrade1 = new Trade({
       traderID: 'trader1',
       sourceID: 'source3',
@@ -898,19 +995,19 @@ describe('rescoreTrades', () => {
       .onFirstCall()
       .resolves([trade1, trade2]);
 
-    service.createTradeObj.withArgs(trade1).resolves(trade1);
-    service.createTradeObj.withArgs(trade2).resolves(trade2);
+    service.createTradeObj.withArgs(sinon.match(trade1)).resolves(trade1);
+    service.createTradeObj.withArgs(sinon.match(trade2)).resolves(trade2);
 
     await service.rescoreTrades(req);
 
-    sinon.assert.calledWithMatch(service.createTradeObj, trade1, {
-      recentDailyStdDev: 2.5,
-      recentDailyMean: 7.5,
-    });
+    sinon.assert.calledWithMatch(service.createTradeObj, Object.assign({}, trade1, {
+      dailyChangeStdDev: 2.5,
+      dailyChangeMean: 7.5,
+    }));
 
-    sinon.assert.calledWithMatch(service.createTradeObj, trade2, {
-      recentDailyStdDev: 5,
-      recentDailyMean: 10,
-    });
+    sinon.assert.calledWithMatch(service.createTradeObj, Object.assign({}, trade2, {
+      dailyChangeStdDev: 5,
+      dailyChangeMean: 10,
+    }));
   });
 });
