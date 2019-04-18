@@ -398,3 +398,160 @@ describe('getTradersScoreHistories', () => {
     ]);
   });
 });
+
+describe('removeTraderScores', () => {
+  it('works', async () => {
+    await knexTrx.from(tableName).insert([
+      {
+        traderID: 'trader1',
+        score: 1,
+        period: 'day',
+        time: msToMySQLFormat(1540000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 2,
+        period: 'day',
+        time: msToMySQLFormat(1550000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1560000000000),
+      },
+      {
+        traderID: 'trader2',
+        score: 3,
+        period: 'day',
+        time: msToMySQLFormat(1570000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 4,
+        period: 'day',
+        time: msToMySQLFormat(1580000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 5,
+        period: 'day',
+        time: msToMySQLFormat(1590000000000),
+      },
+    ]);
+
+    await scoreRepo.removeTraderScores({
+      traderID: 'trader1',
+      period: 'day',
+      endTime: 1580000000000,
+    });
+
+    const rows = await knexTrx(tableName).select();
+    expect(rows).toHaveLength(4);
+
+    expect(rows[0]).toMatchObject({
+      traderID: 'trader1',
+      score: 3,
+      period: 'week',
+      time: new Date(new Date(1560000000000).toISOString()),
+    });
+
+    expect(rows[1]).toMatchObject({
+      traderID: 'trader2',
+      score: 3,
+      period: 'day',
+      time: new Date(new Date(1570000000000).toISOString()),
+    });
+
+    expect(rows[2]).toMatchObject({
+      traderID: 'trader1',
+      score: 4,
+      period: 'day',
+      time: new Date(new Date(1580000000000).toISOString()),
+    });
+
+    expect(rows[3]).toMatchObject({
+      traderID: 'trader1',
+      score: 5,
+      period: 'day',
+      time: new Date(new Date(1590000000000).toISOString()),
+    });
+  });
+
+  it('works with global score', async () => {
+    await knexTrx.from(tableName).insert([
+      {
+        traderID: 'trader1',
+        score: 1,
+        period: 'global',
+        time: msToMySQLFormat(1540000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 2,
+        period: 'global',
+        time: msToMySQLFormat(1550000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1560000000000),
+      },
+      {
+        traderID: 'trader2',
+        score: 3,
+        period: 'global',
+        time: msToMySQLFormat(1570000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 4,
+        period: 'global',
+        time: msToMySQLFormat(1580000000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 5,
+        period: 'global',
+        time: msToMySQLFormat(1590000000000),
+      },
+    ]);
+
+    await scoreRepo.removeTraderScores({
+      traderID: 'trader1',
+      endTime: 1580000000000,
+    });
+
+    const rows = await knexTrx(tableName).select();
+    expect(rows).toHaveLength(4);
+
+    expect(rows[0]).toMatchObject({
+      traderID: 'trader1',
+      score: 3,
+      period: 'week',
+      time: new Date(new Date(1560000000000).toISOString()),
+    });
+
+    expect(rows[1]).toMatchObject({
+      traderID: 'trader2',
+      score: 3,
+      period: 'global',
+      time: new Date(new Date(1570000000000).toISOString()),
+    });
+
+    expect(rows[2]).toMatchObject({
+      traderID: 'trader1',
+      score: 4,
+      period: 'global',
+      time: new Date(new Date(1580000000000).toISOString()),
+    });
+
+    expect(rows[3]).toMatchObject({
+      traderID: 'trader1',
+      score: 5,
+      period: 'global',
+      time: new Date(new Date(1590000000000).toISOString()),
+    });
+  });
+});

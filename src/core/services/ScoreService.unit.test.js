@@ -19,6 +19,7 @@ beforeEach(() => {
       getTradersScoreHistories: sinon.stub(),
       updateTraderScore: sinon.stub(),
       bulkUpdateTraderScore: sinon.stub(),
+      removeTraderScores: sinon.stub(),
     },
     traderScoreMutex: {
       obtain: sinon.stub(),
@@ -269,6 +270,42 @@ describe('calculateScore', () => {
 
     service = new ScoreService(deps);
   });
+
+  describe('calls tradeRepo.removeTraderScores', () => {
+    it('calls with traderID', async () => {
+      const curTime = Date.now();
+      Date.now = jest.fn(() => curTime);
+
+      await service.calculateScore(req);
+      sinon.assert.calledWithMatch(deps.traderScoreRepo.removeTraderScores, {
+        traderID: req.traderID,
+      });
+    });
+
+    it('calls with period', async () => {
+      const curTime = Date.now();
+      Date.now = jest.fn(() => curTime);
+
+      await service.calculateScore(req);
+      sinon.assert.calledWithMatch(deps.traderScoreRepo.removeTraderScores, {
+        period: req.period,
+      });
+    });
+
+    it('calls with endTime as Date.now subtracted by period duration', async () => {
+      const curTime = Date.now();
+      Date.now = jest.fn(() => curTime);
+
+      await service.calculateScore(req);
+
+      const { period } = req;
+      const periodConfig = deps.traderScorePeriodConfig.filter(cfg => cfg.id === period)[0];
+      const endTime = Date.now() - periodConfig.duration;
+
+      sinon.assert.calledWithMatch(deps.traderScoreRepo.removeTraderScores, { endTime });
+    });
+  });
+
 
   it('compound increments scores from tradeRepo.getTrades when more than fetch limit', async () => {
     const score = await service.calculateScore(req);

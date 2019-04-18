@@ -135,6 +135,12 @@ module.exports = class ScoreService {
         startTime = 0;
       }
 
+      await this.traderScoreRepo.removeTraderScores({
+        traderID,
+        period,
+        endTime: startTime,
+      });
+
       const endTime = Date.now();
 
       const calcBulkUpdateScores = (trade) => {

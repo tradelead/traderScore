@@ -130,6 +130,21 @@ module.exports = class ScoreRepo {
     }
   }
 
+  async removeTraderScores({ traderID, period, endTime }) {
+    if (!traderID) {
+      throw new Error('Trader ID is required.');
+    }
+
+    if (endTime == null) {
+      throw new Error('End Time is required.');
+    }
+
+    await this.knexConn(this.tableName)
+      .where({ traderID, period: period || 'global' })
+      .andWhere('time', '<', msToMySQLFormat(endTime))
+      .del();
+  }
+
   async addOrUpdateMySQLScore({
     traderID,
     period,
