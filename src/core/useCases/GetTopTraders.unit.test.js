@@ -111,10 +111,18 @@ describe('data validation', () => {
     return expect(useCase.execute(req)).rejects.toThrow('"Limit" is required');
   });
 
+  it('throws error if limit is greater than 100', async () => {
+    const useCase = new GetTopTraders({});
+    const req = Object.assign({}, defaultReq);
+    req.limit = 101;
+
+    await expect(useCase.execute(req)).rejects.toThrow('"Limit" must be less than or equal to 100');
+  });
+
   it('doesn\'t throws error if limit is numeric string', async () => {
     const useCase = new GetTopTraders(deps);
     const req = Object.assign({}, defaultReq);
-    req.limit = '123';
+    req.limit = '99';
 
     return expect(useCase.execute(req)).resolves;
   });

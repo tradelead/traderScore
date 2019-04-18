@@ -52,4 +52,12 @@ describe('data validation', () => {
 
     return expect(useCase.execute(req)).rejects.toThrow('"Trader IDs" is required');
   });
+
+  it('throws error if traderIDs length is greater than 100', async () => {
+    const useCase = new GetTradersRank({});
+    const req = Object.assign({}, defaultReq);
+    req.traderIDs = new Array(101).fill(0);
+
+    return expect(useCase.execute(req)).rejects.toThrow('"Trader IDs" must contain less than or equal to 100 items');
+  });
 });

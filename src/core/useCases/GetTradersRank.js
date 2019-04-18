@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 const requestSchema = Joi.object().keys({
-  traderIDs: Joi.array().required().label('Trader IDs'),
+  traderIDs: Joi.array().max(100).required().label('Trader IDs'),
 });
 
 module.exports = class GetTradersRank {

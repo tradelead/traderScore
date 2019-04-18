@@ -2,7 +2,7 @@ const Joi = require('joi');
 
 const requestSchema = Joi.object().keys({
   period: Joi.string().label('Period'),
-  limit: Joi.number().greater(0).required().label('Limit'),
+  limit: Joi.number().greater(0).max(100).required().label('Limit'),
 });
 
 module.exports = class GetTopTraders {
