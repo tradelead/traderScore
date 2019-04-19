@@ -1,0 +1,466 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  AccountStack:
+    Type: String
+  DBStack:
+    Type: String
+  MySQLDbName:
+    Type: String
+  MySQLPass:
+    Type: String
+  MySQLUser:
+    Type: String
+  NetworkStack:
+    Type: String
+  TraderExchangeWatchStack:
+    Type: String
+Resources:
+  GraphQL:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        API:
+          Properties:
+            Method: post
+            Path: /graphql
+          Type: Api
+      Handler: GraphQL.handler
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  MoveDueScoreUpdatesToQueue:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        CronJob:
+          Properties:
+            Schedule: rate(1 minute)
+          Type: Schedule
+      Handler: MoveDueScoreUpdatesToQueue.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:SendMessage
+              Effect: Allow
+              Resource: !GetAtt 'ScoreUpdatesQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewFilledOrderConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'NewFilledOrderQueue.Arn'
+          Type: SQS
+      Handler: NewFilledOrder.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'NewFilledOrderQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewFilledOrderQueue:
+    Type: AWS::SQS::Queue
+  NewFilledOrderSubscription:
+    Properties:
+      Endpoint: !GetAtt 'NewFilledOrderQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${TraderExchangeWatchStack}-NewFilledOrderTopicArn
+    Type: AWS::SNS::Subscription
+  NewSuccessfulDepositConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'NewSuccessfulDepositQueue.Arn'
+          Type: SQS
+      Handler: NewSuccessfulDeposit.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'NewSuccessfulDepositQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewSuccessfulDepositQueue:
+    Type: AWS::SQS::Queue
+  NewSuccessfulDepositSubscription:
+    Properties:
+      Endpoint: !GetAtt 'NewSuccessfulDepositQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${TraderExchangeWatchStack}-NewSuccessfulDepositTopicArn
+    Type: AWS::SNS::Subscription
+  NewSuccessfulWithdrawalConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
+          Type: SQS
+      Handler: NewSuccessfulWithdrawal.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewSuccessfulWithdrawalQueue:
+    Type: AWS::SQS::Queue
+  NewSuccessfulWithdrawalSubscription:
+    Properties:
+      Endpoint: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${TraderExchangeWatchStack}-NewSuccessfulWithdrawalTopicArn
+    Type: AWS::SNS::Subscription
+  NewTraderExchangeConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'NewTraderExchangeQueue.Arn'
+          Type: SQS
+      Handler: NewTraderExchange.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'NewTraderExchangeQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewTraderExchangeQueue:
+    Type: AWS::SQS::Queue
+  NewTraderExchangeSubscription:
+    Properties:
+      Endpoint: !GetAtt 'NewTraderExchangeQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${AccountStack}-NewTraderExchangeTopicArn
+    Type: AWS::SNS::Subscription
+  RemoveTraderExchangeConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+          Type: SQS
+      Handler: RemoveTraderExchange.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  RemoveTraderExchangeQueue:
+    Type: AWS::SQS::Queue
+  RemoveTraderExchangeSubscription:
+    Properties:
+      Endpoint: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${AccountStack}-RemoveTraderExchangeTopicArn
+    Type: AWS::SNS::Subscription
+  ScoreUpdatesConsumer:
+    Properties:
+      CodeUri: ../src/lambda/
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${DBStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${DBStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'ScoreUpdatesQueue.Arn'
+          Type: SQS
+      Handler: ScoreUpdates.handler
+      Policies:
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'ScoreUpdatesQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${NetworkStack}-SubnetID
+    Type: AWS::Serverless::Function
+  ScoreUpdatesQueue:
+    Type: AWS::SQS::Queue
+Transform: AWS::Serverless-2016-10-31

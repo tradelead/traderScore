@@ -1,0 +1,13 @@
+Resources:
+  GraphQL:
+    Properties:
+      CodeUri: ../src/lambda/
+      Events:
+        GraphQLAPI:
+          Properties:
+            Method: post
+            Path: /graphql
+          Type: Api
+      Handler: GraphQL.handler
+      Runtime: nodejs8.10
+    Type: AWS::Serverless::Function
