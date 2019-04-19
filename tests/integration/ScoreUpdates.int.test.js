@@ -16,7 +16,7 @@ const mockSQSQueue = new SQSQueue({});
 
 jest.mock('../../src/adapters/SQSQueue');
 
-const app = require('../../app.bootstrap');
+const app = require('../../src/app.bootstrap');
 
 let defaultOrder;
 let defaultDeposit;

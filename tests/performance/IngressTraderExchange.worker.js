@@ -71,7 +71,7 @@ mock('../../src/core/services/ExchangeService', function () {
   };
 });
 
-const app = require('../../app.bootstrap');
+const app = require('../../src/app.bootstrap');
 
 module.exports = async function (req, callback) {
   try {

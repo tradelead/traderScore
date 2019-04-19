@@ -2,7 +2,6 @@
   "name": "traderscore",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "test": "jest",
     "test:unit": "jest unit",
@@ -13,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "apollo-server-lambda": "^2.4.8",
     "aws-sdk": "^2.427.0",
     "bignumber.js": "^8.1.1",
     "debug": "^4.1.1",

@@ -1,8 +1,9 @@
+const gql = require('graphql-tag');
 const { makeExecutableSchema } = require('graphql-tools');
 const Long = require('graphql-type-long');
-const app = require('../../../app.bootstrap');
+const app = require('../../app.bootstrap');
 
-const typeDefs = `
+const typeDefs = gql`
 scalar Long
 
 input ScoreInput {

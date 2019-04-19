@@ -1,7 +1,7 @@
 const { graphql } = require('graphql');
 const sinon = require('sinon');
 
-const app = require('../../../app.bootstrap');
+const app = require('../../app.bootstrap');
 const schema = require('./schema');
 
 const Order = require('../../../src/core/models/Order');

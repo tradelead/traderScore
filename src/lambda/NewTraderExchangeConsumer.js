@@ -1,12 +1,12 @@
 const sqsAsyncRecordHandler = require('./util/sqsAsyncRecordHandler');
 const app = require('../app.bootstrap');
 
-exports.NewSuccessfulWithdrawalConsumer = async function (event, context) {
+exports.handler = async function (event, context) {
   await sqsAsyncRecordHandler(event, context, async (payload, record) => {
     try {
-      await app.useCases.ingressWithdrawal(payload);
+      await app.useCases.ingressTraderExchange(payload);
     } catch (e) {
-      console.error('Failed to ingress withdrawal', e, record);
+      console.error('Failed to ingress trader exchange', e, record);
       throw e;
     }
   });

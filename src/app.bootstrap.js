@@ -5,7 +5,7 @@ const knexFactory = require('knex');
 const Redis = require('ioredis');
 const { EventEmitter } = require('events');
 
-const knexConfig = require('./src/adapters/knex/knexfile');
+const knexConfig = require('./adapters/knex/knexfile');
 
 const env = process.env.NODE_ENV || 'development';
 const knex = knexFactory(knexConfig[env]);
@@ -28,17 +28,17 @@ const scoreUpdatesQueueUrl = process.env.SCORE_UPDATES_QUEUE_URL;
 /**
  * setup adapters
  */
-const RedisMutex = require('./src/adapters/RedisMutex');
-const SQSQueue = require('./src/adapters/SQSQueue');
-const ScoreUpdateScheduleRepo = require('./src/adapters/knex/ScoreUpdateScheduleRepo');
+const RedisMutex = require('./adapters/RedisMutex');
+const SQSQueue = require('./adapters/SQSQueue');
+const ScoreUpdateScheduleRepo = require('./adapters/knex/ScoreUpdateScheduleRepo');
 
-const UnitOfWorkFactory = require('./src/adapters/knex/UnitOfWorkFactory');
-const ExchangeIngressRepoFactory = require('./src/adapters/knex/factories/ExchangeIngressRepoFactory');
-const PortfolioRepoFactory = require('./src/adapters/knex/factories/PortfolioRepoFactory');
-const OrderRepoFactory = require('./src/adapters/knex/factories/OrderRepoFactory');
-const TransferRepoFactory = require('./src/adapters/knex/factories/TransferRepoFactory');
-const ScoreRepoFactory = require('./src/adapters/knex/factories/ScoreRepoFactory');
-const TradeRepoFactory = require('./src/adapters/knex/factories/TradeRepoFactory');
+const UnitOfWorkFactory = require('./adapters/knex/UnitOfWorkFactory');
+const ExchangeIngressRepoFactory = require('./adapters/knex/factories/ExchangeIngressRepoFactory');
+const PortfolioRepoFactory = require('./adapters/knex/factories/PortfolioRepoFactory');
+const OrderRepoFactory = require('./adapters/knex/factories/OrderRepoFactory');
+const TransferRepoFactory = require('./adapters/knex/factories/TransferRepoFactory');
+const ScoreRepoFactory = require('./adapters/knex/factories/ScoreRepoFactory');
+const TradeRepoFactory = require('./adapters/knex/factories/TradeRepoFactory');
 
 const exchangeIngressRepoFactory = new ExchangeIngressRepoFactory();
 const portfolioRepoFactory = new PortfolioRepoFactory();
@@ -55,15 +55,15 @@ const traderScoreRepo = traderScoreRepoFactory.create({ knexConn: knex, knex, re
 /**
  * setup services
  */
-const ExchangeService = require('./src/core/services/ExchangeService');
-const TraderScoreMutex = require('./src/core/services/TraderScoreMutex');
+const ExchangeService = require('./core/services/ExchangeService');
+const TraderScoreMutex = require('./core/services/TraderScoreMutex');
 
-const PortfolioServiceFactory = require('./src/adapters/knex/factories/PortfolioServiceFactory');
-const OrderServiceFactory = require('./src/adapters/knex/factories/OrderServiceFactory');
-const TransferServiceFactory = require('./src/adapters/knex/factories/TransferServiceFactory');
-const ScoreServiceFactory = require('./src/adapters/knex/factories/ScoreServiceFactory');
-const EntryServiceFactory = require('./src/adapters/knex/factories/EntryServiceFactory');
-const TradeServiceFactory = require('./src/adapters/knex/factories/TradeServiceFactory');
+const PortfolioServiceFactory = require('./adapters/knex/factories/PortfolioServiceFactory');
+const OrderServiceFactory = require('./adapters/knex/factories/OrderServiceFactory');
+const TransferServiceFactory = require('./adapters/knex/factories/TransferServiceFactory');
+const ScoreServiceFactory = require('./adapters/knex/factories/ScoreServiceFactory');
+const EntryServiceFactory = require('./adapters/knex/factories/EntryServiceFactory');
+const TradeServiceFactory = require('./adapters/knex/factories/TradeServiceFactory');
 
 // TODO: inject exchangeAPIFactory, traderExchangeKeysRepo
 const exchangeService = new ExchangeService({});
@@ -117,14 +117,14 @@ const tradeServiceFactory = new TradeServiceFactory({
 /**
  * setup use cases
  */
-const GetTopTraders = require('./src/core/useCases/GetTopTraders');
-const GetTraderScoreHistory = require('./src/core/useCases/GetTraderScoreHistory');
-const GetTradersRank = require('./src/core/useCases/GetTradersRank');
-const IngressDeposit = require('./src/core/useCases/IngressDeposit');
-const IngressFilledOrder = require('./src/core/useCases/IngressFilledOrder');
-const IngressWithdrawal = require('./src/core/useCases/IngressWithdrawal');
-const IngressTraderExchange = require('./src/core/useCases/IngressTraderExchange');
-const RemoveTraderExchange = require('./src/core/useCases/RemoveTraderExchange');
+const GetTopTraders = require('./core/useCases/GetTopTraders');
+const GetTraderScoreHistory = require('./core/useCases/GetTraderScoreHistory');
+const GetTradersRank = require('./core/useCases/GetTradersRank');
+const IngressDeposit = require('./core/useCases/IngressDeposit');
+const IngressFilledOrder = require('./core/useCases/IngressFilledOrder');
+const IngressWithdrawal = require('./core/useCases/IngressWithdrawal');
+const IngressTraderExchange = require('./core/useCases/IngressTraderExchange');
+const RemoveTraderExchange = require('./core/useCases/RemoveTraderExchange');
 
 const getTopTraders = new GetTopTraders({
   traderScoreRepo,
@@ -192,7 +192,7 @@ const removeTraderExchange = new RemoveTraderExchange({ exchangeIngressRepo });
 /**
  * setup controllers
  */
-const MoveDueScoreUpdatesQueue = require('./src/core/controllers/MoveDueScoreUpdatesQueue');
+const MoveDueScoreUpdatesQueue = require('./core/controllers/MoveDueScoreUpdatesQueue');
 
 const scoreUpdatesQueue = new SQSQueue({ queueUrl: scoreUpdatesQueueUrl });
 const moveDueScoreUpdatesQueue = new MoveDueScoreUpdatesQueue({
@@ -203,7 +203,7 @@ const moveDueScoreUpdatesQueue = new MoveDueScoreUpdatesQueue({
 /**
  * setup hooks
  */
-const OnTradeScheduleScoreUpdates = require('./src/core/hooks/OnTradeScheduleScoreUpdates');
+const OnTradeScheduleScoreUpdates = require('./core/hooks/OnTradeScheduleScoreUpdates');
 
 const onTradeScheduleScoreUpdates = new OnTradeScheduleScoreUpdates({
   scoreUpdateScheduleRepo,

@@ -1,6 +1,6 @@
 const sinon = require('sinon');
 
-const app = require('../../app.bootstrap');
+const app = require('../../src/app.bootstrap');
 
 const Order = require('../../src/core/models/Order');
 const Deposit = require('../../src/core/models/Deposit');
