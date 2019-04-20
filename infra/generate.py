@@ -1,6 +1,6 @@
 from troposphere import Tags, ImportValue, Parameter, Sub, GetAtt, Ref, Join
 from troposphere import Template
-from troposphere import serverless, awslambda, sqs, sns
+from troposphere import serverless, awslambda, sqs, sns, iam
 
 t = Template()
 t.add_version('2010-09-09')
@@ -8,33 +8,31 @@ t.add_transform('AWS::Serverless-2016-10-31')
 
 # Parameters
 
-t.add_parameter(Parameter('NetworkStack', Type='String'))
-t.add_parameter(Parameter('DBStack', Type='String'))
-t.add_parameter(Parameter('TraderExchangeWatchStack', Type='String'))
-t.add_parameter(Parameter('AccountStack', Type='String'))
+t.add_parameter(Parameter('CoreStack', Type='String'))
 t.add_parameter(Parameter('MySQLDbName', Type='String'))
 t.add_parameter(Parameter('MySQLUser', Type='String'))
 t.add_parameter(Parameter('MySQLPass', Type='String'))
 
 # Lambda Variables
 
-lambdaSrcPath = '../src/lambda/'
+lambdaSrcPath = '../.'
+lambdaHandlerPath = 'src/lambda/'
 nodeRuntime = 'nodejs8.10'
 
 lambdaVpcConfig = awslambda.VPCConfig(
     None, 
     SecurityGroupIds=[
-        ImportValue(Sub('${DBStack}-RDS-Access-SG-ID')), 
-        ImportValue(Sub('${DBStack}-Redis-Access-SG-ID')),
+        ImportValue(Sub('${CoreStack}-RDS-Access-SG-ID')), 
+        ImportValue(Sub('${CoreStack}-Redis-Access-SG-ID')),
     ], 
-    SubnetIds=[ImportValue(Sub('${NetworkStack}-SubnetID'))],
+    SubnetIds=[ImportValue(Sub('${CoreStack}-SubnetID'))],
 )
 
-importRedisAddress = ImportValue(Sub('${DBStack}-Redis-Address'))
-importRedisPort = ImportValue(Sub('${DBStack}-Redis-Port'))
+importRedisAddress = ImportValue(Sub('${CoreStack}-Redis-Address'))
+importRedisPort = ImportValue(Sub('${CoreStack}-Redis-Port'))
 lambdaEnvVars = {
-    'DATABASE_PORT': ImportValue(Sub('${DBStack}-MySQL-Port')),
-    'DATABASE_HOST': ImportValue(Sub('${DBStack}-MySQL-Address')),
+    'DATABASE_PORT': ImportValue(Sub('${CoreStack}-MySQL-Port')),
+    'DATABASE_HOST': ImportValue(Sub('${CoreStack}-MySQL-Address')),
     'DATABASE_NAME': Ref('MySQLDbName'),
     'DATABASE_USER': Ref('MySQLUser'),
     'DATABASE_PASSWORD': Ref('MySQLPass'),
@@ -50,7 +48,7 @@ lambdaEnvVars = {
 graphQL = serverless.Function('GraphQL')
 graphQL.Runtime = nodeRuntime
 graphQL.CodeUri = lambdaSrcPath
-graphQL.Handler = 'GraphQL.handler'
+graphQL.Handler = lambdaHandlerPath + 'GraphQL.handler'
 graphQL.Events = {
     'API': {
         'Type': 'Api',
@@ -60,6 +58,7 @@ graphQL.Events = {
         }
     }
 }
+graphQL.Policies = ['arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole']
 graphQL.VpcConfig = lambdaVpcConfig
 graphQL.Environment = awslambda.Environment(None, Variables = lambdaEnvVars)
 t.add_resource(graphQL)
@@ -69,64 +68,86 @@ def createSQSConsumer(name, snsTopic=None):
 
     # create queue
     res['QueueName'] = name + 'Queue'
-    queue = sqs.Queue(res['QueueName'])
-    queueArn = GetAtt(res['QueueName'], 'Arn')
-    t.add_resource(queue)
-    
+    queue = t.add_resource(sqs.Queue(res['QueueName']))
+    queueArn = GetAtt(res['QueueName'], 'Arn')    
 
     # create subscription
     if (snsTopic) :
         res['SubscriptionName'] = name + 'Subscription'
-        subscription = sns.SubscriptionResource(res['SubscriptionName'])
-        subscription.TopicArn = snsTopic
-        subscription.Endpoint = queueArn
-        subscription.Protocol = 'sqs'
-        subscription.RawMessageDelivery = 'true'
-        t.add_resource(subscription)
+        subscription = t.add_resource(sns.SubscriptionResource(
+            res['SubscriptionName'],
+            TopicArn = snsTopic,
+            Endpoint = queueArn,
+            Protocol = 'sqs',
+            RawMessageDelivery = 'true',
+        ))
+
+        t.add_resource(sqs.QueuePolicy(
+            name + 'AllowSNS2SQSPolicy',
+            Queues = [queue.Ref()],
+            PolicyDocument = {
+                "Version": "2008-10-17",
+                "Id": "PublicationPolicy",
+                "Statement": [{
+                    "Sid": "Allow-SNS-SendMessage",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "*"
+                    },
+                    "Action": ["sqs:SendMessage"],
+                    "Resource": queue.GetAtt("Arn"),
+                    "Condition": {
+                        "ArnEquals": { "aws:SourceArn": snsTopic }
+                    }
+                }]
+            }
+        ))
 
     # create consumer function
     res['FunctionName'] = name + 'Consumer'
-    consumer = serverless.Function(res['FunctionName'])
-    consumer.Runtime = nodeRuntime
-    consumer.CodeUri = lambdaSrcPath
-    consumer.Handler = name + '.handler'
-    consumer.Events = {
-        'SQSTrigger': {
-            'Type': 'SQS',
-            'Properties': {
-                'Queue': queueArn,
-                'BatchSize': 10
+    consumer = t.add_resource(serverless.Function(
+        res['FunctionName'],
+        Runtime = nodeRuntime,
+        CodeUri = lambdaSrcPath,
+        Handler = lambdaHandlerPath + name + '.handler',
+        Events = {
+            'SQSTrigger': {
+                'Type': 'SQS',
+                'Properties': {
+                    'Queue': queueArn,
+                    'BatchSize': 10
+                }
             }
-        }
-    }
-    consumer.Policies = [
-        {
-            'Version': '2012-10-17',
-            'Statement': [{
-                'Effect': 'Allow',
-                'Action': ['sqs:ReceiveMessage', 'sqs:ChangeMessageVisibility', 'sqs:DeleteMessage'],
-                'Resource': GetAtt(res['QueueName'], 'Arn')
-            }],
-        }
-    ]
-    consumer.VpcConfig = lambdaVpcConfig
-    consumer.Environment = awslambda.Environment(None, Variables = lambdaEnvVars)
-    t.add_resource(consumer)
+        },
+        Policies = [
+            'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole',
+            {
+                'Version': '2012-10-17',
+                'Statement': [{
+                    'Effect': 'Allow',
+                    'Action': ['sqs:ReceiveMessage', 'sqs:ChangeMessageVisibility', 'sqs:DeleteMessage'],
+                    'Resource': GetAtt(res['QueueName'], 'Arn')
+                }],
+            }
+        ],
+        VpcConfig = lambdaVpcConfig,
+        Environment = awslambda.Environment(None, Variables = lambdaEnvVars),
+    ))
 
     return res
 
-createSQSConsumer('NewFilledOrder', ImportValue(Sub('${TraderExchangeWatchStack}-NewFilledOrderTopicArn')))
-createSQSConsumer('NewSuccessfulDeposit', ImportValue(Sub('${TraderExchangeWatchStack}-NewSuccessfulDepositTopicArn')))
-createSQSConsumer('NewSuccessfulWithdrawal', ImportValue(Sub('${TraderExchangeWatchStack}-NewSuccessfulWithdrawalTopicArn')))
-createSQSConsumer('NewTraderExchange', ImportValue(Sub('${AccountStack}-NewTraderExchangeTopicArn')))
-createSQSConsumer('RemoveTraderExchange', ImportValue(Sub('${AccountStack}-RemoveTraderExchangeTopicArn')))
+createSQSConsumer('NewFilledOrder', ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
+createSQSConsumer('NewSuccessfulDeposit', ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
+createSQSConsumer('NewSuccessfulWithdrawal', ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
+createSQSConsumer('NewTraderExchange', ImportValue(Sub('${CoreStack}-NewTraderExchangeTopicArn')))
+createSQSConsumer('RemoveTraderExchange', ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
 
 scoreUpdatesRes = createSQSConsumer('ScoreUpdates')
 
 moveDueScoreUpdatesToQueue = serverless.Function('MoveDueScoreUpdatesToQueue')
 moveDueScoreUpdatesToQueue.Runtime = nodeRuntime
 moveDueScoreUpdatesToQueue.CodeUri = lambdaSrcPath
-moveDueScoreUpdatesToQueue.Handler = 'MoveDueScoreUpdatesToQueue.handler'
+moveDueScoreUpdatesToQueue.Handler = lambdaHandlerPath + 'MoveDueScoreUpdatesToQueue.handler'
 moveDueScoreUpdatesToQueue.Events = {
     'CronJob': {
         'Type': 'Schedule',
@@ -136,6 +157,7 @@ moveDueScoreUpdatesToQueue.Events = {
     }
 }
 moveDueScoreUpdatesToQueue.Policies = [
+    'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole',
     {
         'Version': '2012-10-17',
         'Statement': [{

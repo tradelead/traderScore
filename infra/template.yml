@@ -1,8 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
-  AccountStack:
-    Type: String
-  DBStack:
+  CoreStack:
     Type: String
   MySQLDbName:
     Type: String
@@ -10,33 +8,29 @@ Parameters:
     Type: String
   MySQLUser:
     Type: String
-  NetworkStack:
-    Type: String
-  TraderExchangeWatchStack:
-    Type: String
 Resources:
   GraphQL:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -45,40 +39,42 @@ Resources:
             Method: post
             Path: /graphql
           Type: Api
-      Handler: GraphQL.handler
+      Handler: src/lambda/GraphQL.handler
+      Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       Runtime: nodejs8.10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   MoveDueScoreUpdatesToQueue:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -86,8 +82,9 @@ Resources:
           Properties:
             Schedule: rate(1 minute)
           Type: Schedule
-      Handler: MoveDueScoreUpdatesToQueue.handler
+      Handler: src/lambda/MoveDueScoreUpdatesToQueue.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:SendMessage
@@ -98,35 +95,55 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
+  NewFilledOrderAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-NewFilledOrderTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'NewFilledOrderQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'NewFilledOrderQueue'
+    Type: AWS::SQS::QueuePolicy
   NewFilledOrderConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -135,8 +152,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewFilledOrderQueue.Arn'
           Type: SQS
-      Handler: NewFilledOrder.handler
+      Handler: src/lambda/NewFilledOrder.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -149,12 +167,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewFilledOrderQueue:
     Type: AWS::SQS::Queue
@@ -164,30 +182,50 @@ Resources:
       Protocol: sqs
       RawMessageDelivery: 'true'
       TopicArn: !ImportValue
-        Fn::Sub: ${TraderExchangeWatchStack}-NewFilledOrderTopicArn
+        Fn::Sub: ${CoreStack}-NewFilledOrderTopicArn
     Type: AWS::SNS::Subscription
+  NewSuccessfulDepositAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-NewSuccessfulDepositTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'NewSuccessfulDepositQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'NewSuccessfulDepositQueue'
+    Type: AWS::SQS::QueuePolicy
   NewSuccessfulDepositConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -196,8 +234,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewSuccessfulDepositQueue.Arn'
           Type: SQS
-      Handler: NewSuccessfulDeposit.handler
+      Handler: src/lambda/NewSuccessfulDeposit.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -210,12 +249,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewSuccessfulDepositQueue:
     Type: AWS::SQS::Queue
@@ -225,30 +264,50 @@ Resources:
       Protocol: sqs
       RawMessageDelivery: 'true'
       TopicArn: !ImportValue
-        Fn::Sub: ${TraderExchangeWatchStack}-NewSuccessfulDepositTopicArn
+        Fn::Sub: ${CoreStack}-NewSuccessfulDepositTopicArn
     Type: AWS::SNS::Subscription
+  NewSuccessfulWithdrawalAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-NewSuccessfulWithdrawalTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'NewSuccessfulWithdrawalQueue'
+    Type: AWS::SQS::QueuePolicy
   NewSuccessfulWithdrawalConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -257,8 +316,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
           Type: SQS
-      Handler: NewSuccessfulWithdrawal.handler
+      Handler: src/lambda/NewSuccessfulWithdrawal.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -271,12 +331,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewSuccessfulWithdrawalQueue:
     Type: AWS::SQS::Queue
@@ -286,30 +346,50 @@ Resources:
       Protocol: sqs
       RawMessageDelivery: 'true'
       TopicArn: !ImportValue
-        Fn::Sub: ${TraderExchangeWatchStack}-NewSuccessfulWithdrawalTopicArn
+        Fn::Sub: ${CoreStack}-NewSuccessfulWithdrawalTopicArn
     Type: AWS::SNS::Subscription
+  NewTraderExchangeAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-NewTraderExchangeTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'NewTraderExchangeQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'NewTraderExchangeQueue'
+    Type: AWS::SQS::QueuePolicy
   NewTraderExchangeConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -318,8 +398,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewTraderExchangeQueue.Arn'
           Type: SQS
-      Handler: NewTraderExchange.handler
+      Handler: src/lambda/NewTraderExchange.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -332,12 +413,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewTraderExchangeQueue:
     Type: AWS::SQS::Queue
@@ -347,30 +428,50 @@ Resources:
       Protocol: sqs
       RawMessageDelivery: 'true'
       TopicArn: !ImportValue
-        Fn::Sub: ${AccountStack}-NewTraderExchangeTopicArn
+        Fn::Sub: ${CoreStack}-NewTraderExchangeTopicArn
     Type: AWS::SNS::Subscription
+  RemoveTraderExchangeAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-RemoveTraderExchangeTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'RemoveTraderExchangeQueue'
+    Type: AWS::SQS::QueuePolicy
   RemoveTraderExchangeConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -379,8 +480,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'RemoveTraderExchangeQueue.Arn'
           Type: SQS
-      Handler: RemoveTraderExchange.handler
+      Handler: src/lambda/RemoveTraderExchange.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -393,12 +495,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   RemoveTraderExchangeQueue:
     Type: AWS::SQS::Queue
@@ -408,30 +510,30 @@ Resources:
       Protocol: sqs
       RawMessageDelivery: 'true'
       TopicArn: !ImportValue
-        Fn::Sub: ${AccountStack}-RemoveTraderExchangeTopicArn
+        Fn::Sub: ${CoreStack}-RemoveTraderExchangeTopicArn
     Type: AWS::SNS::Subscription
   ScoreUpdatesConsumer:
     Properties:
-      CodeUri: ../src/lambda/
+      CodeUri: ../.
       Environment:
         Variables:
           DATABASE_HOST: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Address
+            Fn::Sub: ${CoreStack}-MySQL-Address
           DATABASE_NAME: !Ref 'MySQLDbName'
           DATABASE_PASSWORD: !Ref 'MySQLPass'
           DATABASE_POOL_MAX: 2
           DATABASE_POOL_MIN: 1
           DATABASE_PORT: !ImportValue
-            Fn::Sub: ${DBStack}-MySQL-Port
+            Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
           REDIS_URL: !Join
             - ''
             - - redis://
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Address
+                Fn::Sub: ${CoreStack}-Redis-Address
               - ':'
               - !ImportValue
-                Fn::Sub: ${DBStack}-Redis-Port
+                Fn::Sub: ${CoreStack}-Redis-Port
           SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
           SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
       Events:
@@ -440,8 +542,9 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'ScoreUpdatesQueue.Arn'
           Type: SQS
-      Handler: ScoreUpdates.handler
+      Handler: src/lambda/ScoreUpdates.handler
       Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
             - Action:
                 - sqs:ReceiveMessage
@@ -454,12 +557,12 @@ Resources:
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: ${DBStack}-RDS-Access-SG-ID
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
           - !ImportValue
-            Fn::Sub: ${DBStack}-Redis-Access-SG-ID
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
         SubnetIds:
           - !ImportValue
-            Fn::Sub: ${NetworkStack}-SubnetID
+            Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   ScoreUpdatesQueue:
     Type: AWS::SQS::Queue
