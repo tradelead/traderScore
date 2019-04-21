@@ -117,6 +117,7 @@ const tradeServiceFactory = new TradeServiceFactory({
 /**
  * setup use cases
  */
+const CalculateTraderScore = require('./core/useCases/CalculateTraderScore');
 const GetTopTraders = require('./core/useCases/GetTopTraders');
 const GetTraderScoreHistory = require('./core/useCases/GetTraderScoreHistory');
 const GetTradersRank = require('./core/useCases/GetTradersRank');
@@ -125,6 +126,17 @@ const IngressFilledOrder = require('./core/useCases/IngressFilledOrder');
 const IngressWithdrawal = require('./core/useCases/IngressWithdrawal');
 const IngressTraderExchange = require('./core/useCases/IngressTraderExchange');
 const RemoveTraderExchange = require('./core/useCases/RemoveTraderExchange');
+
+const calcTraderScoreUOWFactory = new UnitOfWorkFactory({
+  knex,
+  events,
+  serviceFactories: {
+    scoreService: scoreServiceFactory,
+  },
+});
+const calculateTraderScore = new CalculateTraderScore({
+  unitOfWorkFactory: calcTraderScoreUOWFactory,
+});
 
 const getTopTraders = new GetTopTraders({
   traderScoreRepo,
@@ -226,6 +238,7 @@ module.exports = {
     ingressWithdrawal: ingressWithdrawal.execute.bind(ingressWithdrawal),
     ingressTraderExchange: ingressTraderExchange.execute.bind(ingressTraderExchange),
     removeTraderExchange: removeTraderExchange.execute.bind(removeTraderExchange),
+    calculateTraderScore: calculateTraderScore.execute.bind(calculateTraderScore),
   },
   controllers: {
     moveDueScoreUpdatesQueue: moveDueScoreUpdatesQueue.execute.bind(moveDueScoreUpdatesQueue),
