@@ -31,7 +31,11 @@ module.exports = class ScoreRepo {
 
     const res = await pipeline.exec();
     return res.reduce((acc, [_, rank], index) => {
-      acc[traderIDs[index]] = rank + 1;
+      if (rank != null) {
+        acc[traderIDs[index]] = rank + 1;
+      } else {
+        acc[traderIDs[index]] = null;
+      }
       return acc;
     }, {});
   }

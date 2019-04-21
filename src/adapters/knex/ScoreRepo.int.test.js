@@ -301,6 +301,16 @@ describe('getTraderRanks', () => {
       trader2: 3,
     });
   });
+
+  it('returns null rank when trader doesn\'t exist', async () => {
+    const ranks = await scoreRepo.getTraderRanks(['trader1', 'trader3', 'trader2', 'trader5']);
+    return expect(ranks).toEqual({
+      trader1: 4,
+      trader3: 2,
+      trader2: 3,
+      trader5: null,
+    });
+  });
 });
 
 describe('getTradersScoreHistories', () => {
