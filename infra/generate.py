@@ -13,6 +13,7 @@ t.add_parameter(Parameter('MySQLDbName', Type='String'))
 t.add_parameter(Parameter('MySQLUser', Type='String'))
 t.add_parameter(Parameter('MySQLPass', Type='String'))
 t.add_parameter(Parameter('NodeEnv', Type='String'))
+t.add_parameter(Parameter('MockExchangeService', Type='String'))
 
 # Lambda Variables
 
@@ -43,6 +44,7 @@ lambdaEnvVars = {
     'SCORE_PERIOD_CONFIG': '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]',
     'SCORE_UPDATES_QUEUE_URL': Ref('ScoreUpdatesQueue'),
     'NODE_ENV': Ref('NodeEnv'),
+    'MOCK_EXCHANGE_SERVICE': Ref('MockExchangeService'),
 }
 
 # Setup Resources

@@ -55,7 +55,14 @@ const traderScoreRepo = traderScoreRepoFactory.create({ knexConn: knex, knex, re
 /**
  * setup services
  */
-const ExchangeService = require('./core/services/ExchangeService');
+let ExchangeService;
+if (process.env.MOCK_EXCHANGE_SERVICE === 'true') {
+  // eslint-disable-next-line global-require
+  ExchangeService = require('./core/services/ExchangeService');
+} else {
+  // eslint-disable-next-line global-require
+  ExchangeService = require('./core/services/__mocks__/ExchangeServiceDefault');
+}
 const TraderScoreMutex = require('./core/services/TraderScoreMutex');
 
 const PortfolioServiceFactory = require('./adapters/knex/factories/PortfolioServiceFactory');

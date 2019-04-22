@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "apollo-client": "^2.5.1",
     "apollo-server-lambda": "^2.4.8",
     "aws-sdk": "^2.427.0",
     "bignumber.js": "^8.1.1",
