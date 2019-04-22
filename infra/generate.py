@@ -12,6 +12,7 @@ t.add_parameter(Parameter('CoreStack', Type='String'))
 t.add_parameter(Parameter('MySQLDbName', Type='String'))
 t.add_parameter(Parameter('MySQLUser', Type='String'))
 t.add_parameter(Parameter('MySQLPass', Type='String'))
+t.add_parameter(Parameter('NodeEnv', Type='String'))
 
 # Lambda Variables
 
@@ -40,7 +41,8 @@ lambdaEnvVars = {
     'DATABASE_POOL_MAX': 2,
     'REDIS_URL': Join('', ['redis://', importRedisAddress, ':', importRedisPort]),
     'SCORE_PERIOD_CONFIG': '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]',
-    'SCORE_UPDATES_QUEUE_URL': Ref('ScoreUpdatesQueue')
+    'SCORE_UPDATES_QUEUE_URL': Ref('ScoreUpdatesQueue'),
+    'NODE_ENV': Ref('NodeEnv'),
 }
 
 # Setup Resources

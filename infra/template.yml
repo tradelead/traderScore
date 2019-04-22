@@ -8,6 +8,8 @@ Parameters:
     Type: String
   MySQLUser:
     Type: String
+  NodeEnv:
+    Type: String
 Resources:
   GraphQL:
     Properties:
@@ -23,6 +25,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -67,6 +70,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -136,6 +140,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -218,6 +223,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -300,6 +306,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -382,6 +389,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -464,6 +472,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
@@ -526,6 +535,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
             - - redis://
