@@ -58,10 +58,10 @@ const traderScoreRepo = traderScoreRepoFactory.create({ knexConn: knex, knex, re
 let ExchangeService;
 if (process.env.MOCK_EXCHANGE_SERVICE === 'true') {
   // eslint-disable-next-line global-require
-  ExchangeService = require('./core/services/ExchangeService');
+  ExchangeService = require('./core/services/__mocks__/ExchangeServiceDefault');
 } else {
   // eslint-disable-next-line global-require
-  ExchangeService = require('./core/services/__mocks__/ExchangeServiceDefault');
+  ExchangeService = require('./core/services/ExchangeService');
 }
 const TraderScoreMutex = require('./core/services/TraderScoreMutex');
 
