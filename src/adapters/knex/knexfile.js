@@ -21,8 +21,17 @@ const config = {
   },
 };
 
+const testConn = {
+  port: process.env.TEST_DATABASE_PORT,
+  host: process.env.TEST_DATABASE_HOST,
+  database: process.env.TEST_DATABASE_NAME,
+  user: process.env.TEST_DATABASE_USER,
+  password: process.env.TEST_DATABASE_PASSWORD,
+  timezone: 'utc',
+};
+
 module.exports = {
   development: config,
-  test: Object.assign({}, config, { idleTimeoutMillis: 500 }),
+  test: Object.assign({}, config, { idleTimeoutMillis: 500, connection: testConn }),
   production: config,
 };
