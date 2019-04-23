@@ -20,11 +20,14 @@ module.exports = async function (event, context, fn) {
 
     const heartbeatWatchID = setInterval(async () => {
       try {
+        const VisibilityTimeout = heartbeatIntervalMs / 500;
+        console.log('changeMessageVisibility', { QueueUrl, ReceiptHandle, VisibilityTimeout });
         await sqs.changeMessageVisibility({
           QueueUrl,
           ReceiptHandle,
-          VisibilityTimeout: heartbeatIntervalMs / 500,
+          VisibilityTimeout,
         }).promise();
+        console.log('END: changeMessageVisibility', { QueueUrl, ReceiptHandle, VisibilityTimeout });
       } catch (e) {
         console.error('error changing message visibility', e);
       }
@@ -32,12 +35,14 @@ module.exports = async function (event, context, fn) {
 
     try {
       await fn(payload, record);
+
+      console.log('Delete Message', { QueueUrl, ReceiptHandle });
+      await sqs.deleteMessage({ QueueUrl, ReceiptHandle }).promise();
+      console.log('END: Delete Message', { QueueUrl, ReceiptHandle });
     } catch (e) {
       throw e;
     } finally {
       clearInterval(heartbeatWatchID);
     }
-
-    await sqs.deleteMessage({ QueueUrl, ReceiptHandle }).promise();
   }));
 };

@@ -87,7 +87,7 @@ module.exports = class IngressTraderExchange {
         sort: 'asc',
       });
 
-      if (trades && Array.isArray(trades) && trades[0].exit && trades[0].exit.time > 0) {
+      if (trades && trades[0] && trades[0].exit && trades[0].exit.time > 0) {
         await unitOfWork.tradeService.rescoreTrades({ traderID, startTime: trades[0].exit.time });
       }
 

@@ -2,6 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   CoreStack:
     Type: String
+  MockExchangeService:
+    Type: String
   MySQLDbName:
     Type: String
   MySQLPass:
@@ -25,6 +27,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -70,6 +73,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -140,6 +144,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -157,7 +162,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewFilledOrderQueue.Arn'
           Type: SQS
-      Handler: src/lambda/NewFilledOrder.handler
+      Handler: src/lambda/NewFilledOrderConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -169,6 +174,7 @@ Resources:
               Resource: !GetAtt 'NewFilledOrderQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 5
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -223,6 +229,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -240,7 +247,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewSuccessfulDepositQueue.Arn'
           Type: SQS
-      Handler: src/lambda/NewSuccessfulDeposit.handler
+      Handler: src/lambda/NewSuccessfulDepositConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -252,6 +259,7 @@ Resources:
               Resource: !GetAtt 'NewSuccessfulDepositQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 5
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -306,6 +314,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -323,7 +332,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
           Type: SQS
-      Handler: src/lambda/NewSuccessfulWithdrawal.handler
+      Handler: src/lambda/NewSuccessfulWithdrawalConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -335,6 +344,7 @@ Resources:
               Resource: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 5
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -389,6 +399,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -406,7 +417,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'NewTraderExchangeQueue.Arn'
           Type: SQS
-      Handler: src/lambda/NewTraderExchange.handler
+      Handler: src/lambda/NewTraderExchangeConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -418,6 +429,7 @@ Resources:
               Resource: !GetAtt 'NewTraderExchangeQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 300
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -472,6 +484,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -489,7 +502,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'RemoveTraderExchangeQueue.Arn'
           Type: SQS
-      Handler: src/lambda/RemoveTraderExchange.handler
+      Handler: src/lambda/RemoveTraderExchangeConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -501,6 +514,7 @@ Resources:
               Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 5
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -535,6 +549,7 @@ Resources:
           DATABASE_PORT: !ImportValue
             Fn::Sub: ${CoreStack}-MySQL-Port
           DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
           NODE_ENV: !Ref 'NodeEnv'
           REDIS_URL: !Join
             - ''
@@ -552,7 +567,7 @@ Resources:
             BatchSize: 10
             Queue: !GetAtt 'ScoreUpdatesQueue.Arn'
           Type: SQS
-      Handler: src/lambda/ScoreUpdates.handler
+      Handler: src/lambda/ScoreUpdatesConsumer.handler
       Policies:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - Statement:
@@ -564,6 +579,7 @@ Resources:
               Resource: !GetAtt 'ScoreUpdatesQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 3
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue

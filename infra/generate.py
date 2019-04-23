@@ -67,7 +67,7 @@ graphQL.VpcConfig = lambdaVpcConfig
 graphQL.Environment = awslambda.Environment(None, Variables = lambdaEnvVars)
 t.add_resource(graphQL)
 
-def createSQSConsumer(name, snsTopic=None):
+def createSQSConsumer(name, timeout=3, snsTopic=None):
     res = {}
 
     # create queue
@@ -113,7 +113,8 @@ def createSQSConsumer(name, snsTopic=None):
         res['FunctionName'],
         Runtime = nodeRuntime,
         CodeUri = lambdaSrcPath,
-        Handler = lambdaHandlerPath + name + '.handler',
+        Handler = lambdaHandlerPath + name + 'Consumer.handler',
+        Timeout = timeout,
         Events = {
             'SQSTrigger': {
                 'Type': 'SQS',
@@ -140,11 +141,11 @@ def createSQSConsumer(name, snsTopic=None):
 
     return res
 
-createSQSConsumer('NewFilledOrder', ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
-createSQSConsumer('NewSuccessfulDeposit', ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
-createSQSConsumer('NewSuccessfulWithdrawal', ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
-createSQSConsumer('NewTraderExchange', ImportValue(Sub('${CoreStack}-NewTraderExchangeTopicArn')))
-createSQSConsumer('RemoveTraderExchange', ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
+createSQSConsumer('NewFilledOrder', 5, ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
+createSQSConsumer('NewSuccessfulDeposit', 5, ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
+createSQSConsumer('NewSuccessfulWithdrawal', 5, ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
+createSQSConsumer('NewTraderExchange', 300, ImportValue(Sub('${CoreStack}-NewTraderExchangeTopicArn')))
+createSQSConsumer('RemoveTraderExchange', 5, ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
 
 scoreUpdatesRes = createSQSConsumer('ScoreUpdates')
 

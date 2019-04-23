@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const ApolloClient = require('apollo-client');
+const { createApolloFetch } = require('apollo-fetch');
 
 const NewTraderExchangeTopicArn = process.env.NEW_TRADER_EXCHANGE_TOPIC_ARN;
 const NewSuccessfulDepositTopicArn = process.env.NEW_SUCCESSFUL_DEPOSIT_TOPIC_ARN;
@@ -9,11 +9,10 @@ const RemoveTraderExchangeTopicArn = process.env.REMOVE_TRADER_EXCHANGE_TOPIC_AR
 const GraphQLAPIURL = process.env.GRAPHQL_API_URL;
 
 const sns = new AWS.SNS({ apiVersion: '2010-03-31' });
-const gqlClient = new ApolloClient({ uri: GraphQLAPIURL });
+const gqlFetch = createApolloFetch({ uri: GraphQLAPIURL });
 
 async function snsPublish(TopicArn, data) {
-  const args = { TopicArn, MessageAttributes: { DataType: 'String' } };
-  args.Message = JSON.stringify(data);
+  const args = { TopicArn, Message: JSON.stringify(data) };
   return sns.publish(args).promise();
 }
 
@@ -22,29 +21,30 @@ function sleep(ms) {
 }
 
 async function getTraderScore(traderID, period) {
-  const periodQuery = (period ? `period: "${period}"` : null);
-  const res = await gqlClient(`
-    {
-      getTrader(id: "${traderID}") { 
-        rank,
-        scores(input: { 
-          limit: 1
-          ${periodQuery}
-        }) {
-          score
-        }
+  const periodQuery = (period ? `period: "${period}"` : '');
+  const query = `{
+    getTrader(id: "${traderID}") { 
+      rank,
+      scores(input: { 
+        limit: 1
+        ${periodQuery}
+      }) {
+        score
       }
     }
-  `);
+  }`;
+  const { data, errors } = await gqlFetch({ query });
 
-  if (res.errors) {
+  if (errors) {
     const e = new Error('Couldn\'t get trader score');
-    e.info = res.errors;
+    e.info = errors;
+    console.error(errors);
     throw e;
   }
 
-  if (res.getTrader.scores[0]) {
-    return res.getTrader.scores[0].score;
+  console.log(data);
+  if (data.getTrader.scores[0]) {
+    return data.getTrader.scores[0].score;
   }
 
   return null;
@@ -64,7 +64,7 @@ it('works', async () => {
   });
 
   // 2. (wait 5 secs) Verify Score is Greater Than 1
-  await sleep(2000);
+  await sleep(5000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(1);
   prevScore = score;
@@ -97,7 +97,7 @@ it('works', async () => {
   });
 
   // 5. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(2000);
+  await sleep(5000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(prevScore);
   prevScore = score;
@@ -119,7 +119,7 @@ it('works', async () => {
   });
 
   // 8. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(2000);
+  await sleep(5000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(prevScore);
   prevScore = score;
@@ -131,7 +131,7 @@ it('works', async () => {
   });
 
   // 10. (wait 5 secs) Push to NewSuccessfulDepositTopic & NewFilledOrderTopic
-  await sleep(2000);
+  await sleep(5000);
 
   await snsPublish(NewSuccessfulDepositTopicArn, {
     traderID,
@@ -159,7 +159,7 @@ it('works', async () => {
   });
 
   // 11. (wait 5 secs) Verify Score is the same
-  await sleep(2000);
+  await sleep(5000);
   score = await getTraderScore('trader1');
   expect(score).toEqual(prevScore);
-});
+}, 120000);

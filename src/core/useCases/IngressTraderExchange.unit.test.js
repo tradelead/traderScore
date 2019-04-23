@@ -609,6 +609,12 @@ describe('rescoreTrades', () => {
       traderID: defaultReq.traderID,
     });
   });
+
+  it('doesn\'t throw error when empty trades', async () => {
+    unitOfWork.tradeService.getTrades.resolves([]);
+    const useCase = new IngressTraderExchange(deps);
+    await expect(useCase.execute(defaultReq)).resolves.toBeDefined();
+  });
 });
 
 test('calculates trader scores', async () => {
