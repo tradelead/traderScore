@@ -17,6 +17,7 @@ module.exports = class IngressWithdrawal {
   }
 
   async execute(req) {
+    console.log('IngressWithdrawal', req);
     const { error, value } = schema.validate(req);
 
     if (error != null) {
@@ -54,8 +55,13 @@ module.exports = class IngressWithdrawal {
       });
 
       await unitOfWork.transferService.addWithdrawal(withdrawal);
-      await newTrade;
+      console.log('IngressWithdrawal: withdrawal saved', withdrawal);
+
+      const trades = await newTrade;
+      console.log('IngressWithdrawal: new trades', trades);
+
       await unitOfWork.complete();
+      console.log('IngressWithdrawal: unit of work complete');
     } catch (e) {
       await unitOfWork.rollback();
       throw e;

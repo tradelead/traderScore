@@ -7,6 +7,7 @@ beforeEach(() => {
   deps = {
     scoreUpdateScheduleRepo: {
       fetchDue: jest.fn(),
+      complete: jest.fn(),
     },
     scoreUpdatesQueue: {
       push: jest.fn(),
@@ -19,10 +20,12 @@ beforeEach(() => {
 it('it adds fetchDue items to scoreUpdatesQueue', async () => {
   deps.scoreUpdateScheduleRepo.fetchDue.mockImplementation(async () => [
     {
+      ID: '1',
       traderID: 'trader1',
       period: 'day',
     },
     {
+      ID: '2',
       traderID: 'trader1',
       period: 'week',
     },
@@ -39,4 +42,14 @@ it('it adds fetchDue items to scoreUpdatesQueue', async () => {
     traderID: 'trader1',
     period: 'week',
   });
+
+  expect(deps.scoreUpdateScheduleRepo.complete).toHaveBeenCalledWith([{
+    ID: '1',
+    traderID: 'trader1',
+    period: 'day',
+  }, {
+    ID: '2',
+    traderID: 'trader1',
+    period: 'week',
+  }]);
 });

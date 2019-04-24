@@ -29,6 +29,7 @@ module.exports = class CalculateTraderScore {
         period,
       });
       await unitOfWork.complete();
+      console.log('calculateScore', { traderID, period });
       return score;
     } catch (e) {
       await unitOfWork.rollback();

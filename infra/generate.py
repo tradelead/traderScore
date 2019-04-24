@@ -67,7 +67,7 @@ graphQL.VpcConfig = lambdaVpcConfig
 graphQL.Environment = awslambda.Environment(None, Variables = lambdaEnvVars)
 t.add_resource(graphQL)
 
-def createSQSConsumer(name, timeout=3, snsTopic=None):
+def createSQSConsumer(name, timeout=5, snsTopic=None):
     res = {}
 
     # create queue
@@ -141,17 +141,18 @@ def createSQSConsumer(name, timeout=3, snsTopic=None):
 
     return res
 
-createSQSConsumer('NewFilledOrder', 5, ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
-createSQSConsumer('NewSuccessfulDeposit', 5, ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
-createSQSConsumer('NewSuccessfulWithdrawal', 5, ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
+createSQSConsumer('NewFilledOrder', 10, ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
+createSQSConsumer('NewSuccessfulDeposit', 10, ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
+createSQSConsumer('NewSuccessfulWithdrawal', 10, ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
 createSQSConsumer('NewTraderExchange', 300, ImportValue(Sub('${CoreStack}-NewTraderExchangeTopicArn')))
-createSQSConsumer('RemoveTraderExchange', 5, ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
+createSQSConsumer('RemoveTraderExchange', 10, ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
 
-scoreUpdatesRes = createSQSConsumer('ScoreUpdates')
+scoreUpdatesRes = createSQSConsumer('ScoreUpdates', 30)
 
 moveDueScoreUpdatesToQueue = serverless.Function('MoveDueScoreUpdatesToQueue')
 moveDueScoreUpdatesToQueue.Runtime = nodeRuntime
 moveDueScoreUpdatesToQueue.CodeUri = lambdaSrcPath
+moveDueScoreUpdatesToQueue.Timeout = 30
 moveDueScoreUpdatesToQueue.Handler = lambdaHandlerPath + 'MoveDueScoreUpdatesToQueue.handler'
 moveDueScoreUpdatesToQueue.Events = {
     'CronJob': {

@@ -100,6 +100,7 @@ Resources:
               Resource: !GetAtt 'ScoreUpdatesQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
+      Timeout: 30
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -174,7 +175,7 @@ Resources:
               Resource: !GetAtt 'NewFilledOrderQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
-      Timeout: 5
+      Timeout: 10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -259,7 +260,7 @@ Resources:
               Resource: !GetAtt 'NewSuccessfulDepositQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
-      Timeout: 5
+      Timeout: 10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -344,7 +345,7 @@ Resources:
               Resource: !GetAtt 'NewSuccessfulWithdrawalQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
-      Timeout: 5
+      Timeout: 10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -514,7 +515,7 @@ Resources:
               Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
-      Timeout: 5
+      Timeout: 10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
@@ -579,7 +580,7 @@ Resources:
               Resource: !GetAtt 'ScoreUpdatesQueue.Arn'
           Version: '2012-10-17'
       Runtime: nodejs8.10
-      Timeout: 3
+      Timeout: 30
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue

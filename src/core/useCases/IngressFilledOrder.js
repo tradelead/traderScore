@@ -1,4 +1,3 @@
-const debug = require('debug')('traderScore:IngressFilledOrder');
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 const Order = require('../models/Order');
@@ -26,6 +25,7 @@ module.exports = class IngressFilledOrder {
   }
 
   async execute(req) {
+    console.log('IngressFilledOrder', req);
     const { error, value } = schema.validate(req);
 
     if (error != null) {
@@ -37,9 +37,6 @@ module.exports = class IngressFilledOrder {
 
     const unitOfWork = await this.unitOfWorkFactory.create();
     try {
-      const unitDebug = debug.extend(`${unitOfWork.idShort()}`);
-
-      unitDebug('start');
       if (!value.past) {
         const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
           traderID: value.traderID,
@@ -49,7 +46,6 @@ module.exports = class IngressFilledOrder {
           throw new Error('Exchange ingress not complete');
         }
       }
-      unitDebug('exchangeIngressRepo completed');
 
       const order = new Order(value);
 
@@ -80,11 +76,11 @@ module.exports = class IngressFilledOrder {
       });
 
       await saveOrder;
-      unitDebug('order added');
-      await newTrade;
-      unitDebug('new trades added');
+      console.log('IngressFilledOrder: order saved', order);
+      const trades = await newTrade;
+      console.log('IngressFilledOrder: new trades', trades);
       await unitOfWork.complete();
-      unitDebug('unit of work completed');
+      console.log('IngressFilledOrder: unit of work completed');
     } catch (e) {
       await unitOfWork.rollback();
       throw e;

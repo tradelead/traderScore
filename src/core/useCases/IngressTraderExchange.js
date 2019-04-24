@@ -28,6 +28,7 @@ module.exports = class IngressTraderExchange {
   }
 
   async execute(req) {
+    console.log('IngressTraderExchange', req);
     const { error, value } = requestSchema.validate(req);
 
     if (error != null) {
@@ -89,13 +90,17 @@ module.exports = class IngressTraderExchange {
 
       if (trades && trades[0] && trades[0].exit && trades[0].exit.time > 0) {
         await unitOfWork.tradeService.rescoreTrades({ traderID, startTime: trades[0].exit.time });
+        console.log('IngressTraderExchange: rescoreTrades', { traderID, startTime: trades[0].exit.time });
       }
 
       await unitOfWork.scoreService.calculateScores({ traderID });
+      console.log('IngressTraderExchange: calculateScores', { traderID });
 
       await unitOfWork.exchangeIngressRepo.markComplete({ traderID, exchangeID });
+      console.log('IngressTraderExchange: markComplete', { traderID, exchangeID });
 
       await unitOfWork.complete();
+      console.log('IngressTraderExchange: unit of work complete');
     } catch (e) {
       unitOfWork.rollback();
       throw e;

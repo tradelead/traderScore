@@ -17,6 +17,7 @@ module.exports = class IngressDeposit {
   }
 
   async execute(req) {
+    console.log('IngressDeposit', req);
     const { error, value } = schema.validate(req);
 
     if (error != null) {
@@ -42,6 +43,7 @@ module.exports = class IngressDeposit {
 
       await unitOfWork.transferService.addDeposit(deposit);
       await unitOfWork.complete();
+      console.log('IngressDeposit: complete', deposit);
     } catch (e) {
       await unitOfWork.rollback();
       throw e;

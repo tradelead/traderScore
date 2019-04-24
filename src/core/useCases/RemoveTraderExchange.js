@@ -4,6 +4,8 @@ module.exports = class RemoveTraderExchange {
   }
 
   async execute({ traderID, exchangeID }) {
+    console.log('RemoveTraderExchange', { traderID, exchangeID });
     await this.exchangeIngressRepo.markIncomplete({ traderID, exchangeID });
+    console.log('RemoveTraderExchange: complete', { traderID, exchangeID });
   }
 };

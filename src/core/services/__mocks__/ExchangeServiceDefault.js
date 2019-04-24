@@ -75,6 +75,7 @@ mockExchangeService.getFilledOrders
     [],
   ));
 
+mockExchangeService.getSuccessfulDeposits.reset();
 mockExchangeService.getSuccessfulDeposits
   .callsFake(oncePerTraderExchange(
     ({ traderID, exchangeID }) => [
@@ -83,6 +84,7 @@ mockExchangeService.getSuccessfulDeposits
     [],
   ));
 
+mockExchangeService.getSuccessfulWithdrawals.reset();
 mockExchangeService.getSuccessfulWithdrawals
   .callsFake(oncePerTraderExchange(
     ({ traderID, exchangeID }) => [
@@ -90,6 +92,16 @@ mockExchangeService.getSuccessfulWithdrawals
     ],
     [],
   ));
+
+mockExchangeService.getPrice.reset();
+
+let price = 100;
+mockExchangeService.getPrice
+  .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT' }))
+  .callsFake(() => {
+    price += 25;
+    return price;
+  });
 
 mockExchangeService.getPrice
   .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
@@ -105,6 +117,7 @@ mockExchangeService.getPrice
 
 mockExchangeService.getPrice.resolves(1);
 
+mockExchangeService.getBTCValue.reset();
 mockExchangeService.getBTCValue
   .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'BTC', time: defaultOrder.time }))
   .resolves(0.3);

@@ -42,10 +42,12 @@ async function getTraderScore(traderID, period) {
     throw e;
   }
 
-  console.log(data);
   if (data.getTrader.scores[0]) {
+    console.log(data.getTrader.scores[0].score);
     return data.getTrader.scores[0].score;
   }
+
+  console.log(data);
 
   return null;
 }
@@ -54,8 +56,10 @@ it('works', async () => {
   let score;
   let prevScore;
 
-  const traderID = 'trader1';
+  const traderID = `trader${parseInt(Math.random() * 10000, 10)}`;
   const exchangeID = 'binance';
+
+  console.log(`traderID: ${traderID}`);
 
   // 1. Push to NewTraderExchangeTopic
   await snsPublish(NewTraderExchangeTopicArn, {
@@ -63,76 +67,13 @@ it('works', async () => {
     exchangeID,
   });
 
-  // 2. (wait 5 secs) Verify Score is Greater Than 1
+  // 2. Verify Score is Greater Than 1
   await sleep(10000);
-  score = await getTraderScore('trader1');
+  score = await getTraderScore(traderID);
   expect(score).toBeGreaterThan(1);
   prevScore = score;
 
   // 3. Push to NewSuccessfulDepositTopic
-  await snsPublish(NewSuccessfulDepositTopicArn, {
-    traderID,
-    exchangeID,
-    sourceID: 'transfer1',
-    asset: 'USDT',
-    time: Date.now() - (2 * 24 * 60 * 60 * 1000),
-    quantity: 1551.0729615,
-  });
-
-  // 4. Push to NewFilledOrderTopic (order has 30 seconds before day period drop off)
-  await snsPublish(NewFilledOrderTopicArn, {
-    traderID: 'trader1',
-    sourceID: 'order1',
-    exchangeID: 'binance',
-    side: 'buy',
-    asset: 'ETH',
-    quoteAsset: 'USDT',
-    time: Date.now() - (24 * 60 * 60 * 1000) + (30 * 1000),
-    quantity: 12.345,
-    price: 123.4567,
-    fee: {
-      quantity: 27,
-      asset: 'USDT',
-    },
-  });
-
-  // 5. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(10000);
-  score = await getTraderScore('trader1');
-  expect(score).toBeGreaterThan(prevScore);
-  prevScore = score;
-  const prevDayScore = await getTraderScore('trader1', 'day');
-
-  // 6. (wait 60 secs) Verify Day Score Decreased
-  await sleep(60000);
-  const dayScore = await getTraderScore('trader1', 'day');
-  expect(dayScore).toBeLessThan(prevDayScore);
-
-  // 7. Push to NewSuccessfulWithdrawalTopic
-  await snsPublish(NewSuccessfulWithdrawalTopicArn, {
-    traderID: 'trader1',
-    sourceID: 'transfer2',
-    exchangeID: 'binance',
-    asset: 'ETH',
-    time: Date.now(),
-    quantity: 12.345,
-  });
-
-  // 8. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(10000);
-  score = await getTraderScore('trader1');
-  expect(score).toBeGreaterThan(prevScore);
-  prevScore = score;
-
-  // 9. Push to RemoveTraderExchangeTopic
-  await snsPublish(RemoveTraderExchangeTopicArn, {
-    traderID,
-    exchangeID,
-  });
-
-  // 10. (wait 5 secs) Push to NewSuccessfulDepositTopic & NewFilledOrderTopic
-  await sleep(10000);
-
   await snsPublish(NewSuccessfulDepositTopicArn, {
     traderID,
     exchangeID,
@@ -141,11 +82,72 @@ it('works', async () => {
     time: Date.now() - (2 * 24 * 60 * 60 * 1000),
     quantity: 1551.0729615,
   });
+  await sleep(10000);
+
+  // 4. Push to NewFilledOrderTopic (order has 30 seconds before day period drop off)
+  await snsPublish(NewFilledOrderTopicArn, {
+    traderID,
+    exchangeID,
+    sourceID: 'order2',
+    side: 'buy',
+    asset: 'ETH',
+    quoteAsset: 'USDT',
+    time: Date.now() - (1.5 * 24 * 60 * 60 * 1000),
+    quantity: 12.345,
+    price: 123.4567,
+    fee: {
+      quantity: 27,
+      asset: 'USDT',
+    },
+  });
+  await sleep(10000);
+
+  // 5. Push to NewSuccessfulWithdrawalTopic
+  await snsPublish(NewSuccessfulWithdrawalTopicArn, {
+    traderID,
+    exchangeID,
+    sourceID: 'transfer4',
+    asset: 'ETH',
+    time: Date.now() - (24 * 60 * 60 * 1000) + (30 * 1000),
+    quantity: 12.345,
+  });
+
+  // 6. Verify Score Increase Has Increased
+  await sleep(10000);
+  score = await getTraderScore(traderID);
+  expect(score).toBeGreaterThan(prevScore);
+  prevScore = score;
+  const prevDayScore = await getTraderScore(traderID, 'day');
+
+  // 7. (wait 60 secs) Verify Day Score Decreased
+  await sleep(60000);
+  const dayScore = await getTraderScore(traderID, 'day');
+  expect(dayScore).toBeLessThan(prevDayScore);
+
+  // 8. Push to RemoveTraderExchangeTopic
+  await snsPublish(RemoveTraderExchangeTopicArn, {
+    traderID,
+    exchangeID,
+  });
+
+  // 9. Push to NewSuccessfulDepositTopic & NewFilledOrderTopic & NewSuccessfulWithdrawalTopicArn
+  await sleep(10000);
+
+  await snsPublish(NewSuccessfulDepositTopicArn, {
+    traderID,
+    exchangeID,
+    sourceID: 'transfer5',
+    asset: 'USDT',
+    time: Date.now() - (2 * 24 * 60 * 60 * 1000),
+    quantity: 1551.0729615,
+  });
+
+  await sleep(10000);
 
   await snsPublish(NewFilledOrderTopicArn, {
-    traderID: 'trader1',
-    sourceID: 'order2',
-    exchangeID: 'binance',
+    traderID,
+    exchangeID,
+    sourceID: 'order3',
     side: 'buy',
     asset: 'ETH',
     quoteAsset: 'USDT',
@@ -158,8 +160,19 @@ it('works', async () => {
     },
   });
 
-  // 11. (wait 5 secs) Verify Score is the same
   await sleep(10000);
-  score = await getTraderScore('trader1');
+
+  await snsPublish(NewSuccessfulWithdrawalTopicArn, {
+    traderID,
+    exchangeID,
+    sourceID: 'transfer6',
+    asset: 'ETH',
+    time: Date.now(),
+    quantity: 12.345,
+  });
+
+  // 11. Verify Score is the same
+  await sleep(10000);
+  score = await getTraderScore(traderID);
   expect(score).toEqual(prevScore);
-}, 120000);
+}, 180000);

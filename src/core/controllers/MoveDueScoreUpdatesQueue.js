@@ -15,8 +15,10 @@ module.exports = class MoveDueScoreUpdatesQueue {
           traderID,
           period,
         });
+        console.log('MoveDueScoreUpdatesQueue', { traderID, period });
       }
     });
+    await this.scoreUpdateScheduleRepo.complete(scoreUpdates);
     await Promise.all(promises);
   }
 };
