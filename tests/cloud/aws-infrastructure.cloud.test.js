@@ -64,7 +64,7 @@ it('works', async () => {
   });
 
   // 2. (wait 5 secs) Verify Score is Greater Than 1
-  await sleep(5000);
+  await sleep(10000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(1);
   prevScore = score;
@@ -97,7 +97,7 @@ it('works', async () => {
   });
 
   // 5. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(5000);
+  await sleep(10000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(prevScore);
   prevScore = score;
@@ -119,7 +119,7 @@ it('works', async () => {
   });
 
   // 8. (wait 5 secs) Verify Score Increase Has Increased
-  await sleep(5000);
+  await sleep(10000);
   score = await getTraderScore('trader1');
   expect(score).toBeGreaterThan(prevScore);
   prevScore = score;
@@ -131,7 +131,7 @@ it('works', async () => {
   });
 
   // 10. (wait 5 secs) Push to NewSuccessfulDepositTopic & NewFilledOrderTopic
-  await sleep(5000);
+  await sleep(10000);
 
   await snsPublish(NewSuccessfulDepositTopicArn, {
     traderID,
@@ -159,7 +159,7 @@ it('works', async () => {
   });
 
   // 11. (wait 5 secs) Verify Score is the same
-  await sleep(5000);
+  await sleep(10000);
   score = await getTraderScore('trader1');
   expect(score).toEqual(prevScore);
 }, 120000);
