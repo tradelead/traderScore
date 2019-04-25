@@ -34,7 +34,7 @@ jobs:
             - node_modules
           key: node-modules-dev-{{ checksum "package-lock.json" }}
       - setup_remote_docker
-      - run: docker-compose -f dc-test-dev.yml up -d --remove-orphans
+      - run: npm run test:int:up
       - run: npm run test:int
       - run: npm run test:int:down
   createChangeSet:

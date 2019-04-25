@@ -6,7 +6,8 @@ services:
     command: /usr/app/node_modules/.bin/knex migrate:latest
     working_dir: /usr/app/src/adapters/knex
     volumes:
-      - .:/usr/app:cached
+      - ./src/adapters/knex:/usr/app/src/adapters/knex
+      - ./node_modules/.bin/knex:/usr/app/node_modules/.bin/knex
     environment:
       DATABASE_PORT: 3306
       DATABASE_HOST: mysql
