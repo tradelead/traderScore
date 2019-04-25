@@ -12,7 +12,7 @@ jobs:
       - restore_cache:
           keys:
             - node-modules-dev-{{ checksum package-lock.json }}
-            - node-modules-dev-
+            - node-modules-dev
       - run: NODE_ENV=development npm install
       - save_cache:
           paths:
@@ -34,9 +34,9 @@ jobs:
             - node_modules
           key: node-modules-dev-{{ checksum package-lock.json }}
       - setup_remote_docker
-      - run: npm run test:up
+      - run: npm run test:int:up
       - run: npm run test:int
-      - run: npm run test:down
+      - run: npm run test:int:down
   createChangeSet:
     docker:
       - image: circleci/node:8
@@ -62,7 +62,7 @@ jobs:
           PARAMETERS+="MockExchangeService=false "
 
           mkdir workspace
-          aws cloudformation package --template-file template.yml --s3-bucket $S3_CODE_BUCKET --output-template-file package.yml
+          aws cloudformation package --template-file infra/template.yml --s3-bucket $S3_CODE_BUCKET --output-template-file package.yml
           aws cloudformation deploy --stack-name $STACK_NAME --no-execute-changeset --capabilities CAPABILITY_IAM --template-file package.yml --parameter-overrides $PARAMETERS | tee workspace/changeset.txt
           CHANGE_SET_NAME=$(grep -o "arn:aws:cloudformation.*" workspace/changeset.txt)
           echo $CHANGE_SET_NAME >> workspace/changesetname.txt
@@ -92,7 +92,7 @@ jobs:
       - restore_cache:
           keys:
             - node-modules-dev-{{ checksum package-lock.json }}
-            - node-modules-dev-
+            - node-modules-dev
       - run: NODE_ENV=development npm install
       - save_cache:
           paths:
