@@ -9,8 +9,8 @@ const config = {
     timezone: 'utc',
   },
   pool: {
-    min: parseInt(process.env.DATABASE_POOL_MIN),
-    max: parseInt(process.env.DATABASE_POOL_MAX),
+    min: parseInt(process.env.DATABASE_POOL_MIN, 10),
+    max: parseInt(process.env.DATABASE_POOL_MAX, 10),
   },
   migrations: {
     directory: './migrations',

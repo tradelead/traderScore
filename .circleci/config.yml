@@ -1,0 +1,163 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@0.1.13
+
+jobs:
+  unitTest:
+    docker:
+      - image: circleci/node:8
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-
+      - run: |
+          NODE_ENV=development npm install
+      - save_cache:
+          paths:
+            - node_modules
+          keys: 
+            - node-modules-{{ checksum package-lock.json }}
+      - run: npm run test:unit
+  intTest:
+    docker:
+      - image: circleci/node:8
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-
+      - run: |
+          NODE_ENV=development npm install
+      - save_cache:
+          paths:
+            - node_modules
+          keys: 
+            - node-modules-{{ checksum package-lock.json }}
+      - setup_remote_docker
+      - run: npm run test:up
+      - run: npm run test:int
+      - run: npm run test:down
+  createChangeSet:
+    docker:
+      - image: circleci/buildpack-deps:jessie
+    steps:
+      - checkout
+      - run: |
+          sudo apt-get install python-dev
+      - aws-cli/install
+      - run: |
+          PARAMETERS="CoreStack=$CORE_STACK "
+          PARAMETERS+="MySQLDbName=$MYSQL_DB_NAME "
+          PARAMETERS+="MySQLUser=$MYSQL_USER "
+          PARAMETERS+="MySQLPass=$MYSQL_PASS "
+          PARAMETERS+="NodeEnv=$NODE_ENV "
+          PARAMETERS+="MockExchangeService=false "
+
+          mkdir workspace
+          aws cloudformation deploy --stack-name $STACK_NAME --no-execute-changeset --capabilities CAPABILITY_IAM --template-file template.yml --parameter-overrides $PARAMETERS | tee workspace/changeset.txt
+          CHANGE_SET_NAME=$(grep -o "arn:aws:cloudformation.*" workspace/changeset.txt)
+          echo $CHANGE_SET_NAME >> workspace/changesetname.txt
+          echo $CHANGE_SET_NAME
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - changesetname.txt
+  executeChangeSet:
+    docker:
+      - image: circleci/buildpack-deps:jessie
+    steps:
+      - attach_workspace:
+          at: workspace
+      - run: |
+          sudo apt-get install python-dev
+      - aws-cli/install
+      - run: |
+          CHANGE_SET_NAME=$(cat workspace/changesetname.txt)
+          aws cloudformation execute-change-set --change-set-name $CHANGE_SET_NAME
+          aws cloudformation wait stack-update-complete --stack-name $STACK_NAME
+  dbSetupAndMigrate:
+    docker:
+      - image: circleci/node:8
+    steps:
+      - add_ssh_keys
+      - checkout
+      - restore_cache:
+          keys:
+            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-
+      - run: |
+          npm install
+      - save_cache:
+          paths:
+            - node_modules
+          keys: 
+            - node-modules-{{ checksum package-lock.json }}
+      - run: |
+          npm run infra:allow-ssh-my-ip -- --stack-name $CORE_STACK
+          npm run infra:create-rds-tunnel -- --stack-name $CORE_STACK --port 9000
+
+          export DATABASE_HOST=127.0.0.1
+          export DATABASE_PORT=9000
+          export DATABASE_NAME=$MYSQL_DB_NAME
+          export DATABASE_USER=$MYSQL_USER
+          export DATABASE_PASSWORD=$MYSQL_PASS
+          export DATABASE_POOL_MIN=1
+          export DATABASE_POOL_MAX=2
+
+          npm run db:setup -- --stack-name $CORE_STACK
+          npm run db:migrate -- --stack-name $CORE_STACK
+
+          npm run infra:close-rds-tunnel -- --stack-name $CORE_STACK
+          npm run infra:deny-ssh-my-ip -- --stack-name $CORE_STACK
+  deleteChangeSet:
+    docker:
+      - image: circleci/buildpack-deps:jessie
+    steps:
+      - attach_workspace:
+          at: workspace
+      - run: |
+          sudo apt-get install python-dev
+      - aws-cli/install
+      - run: |
+          CHANGE_SET_NAME=$(cat workspace/changesetname.txt)
+          aws cloudformation delete-change-set --change-set-name $CHANGE_SET_NAME
+        
+workflows:
+  test_and_deploy:
+    jobs:
+      - unitTest
+      - intTest
+      - createChangeSet
+      - reviewChangeSet:
+          type: approval
+          requires:
+            - createChangeSet
+          filters:
+            branches:
+              only:
+                - master
+      - executeChangeSet:
+          requires:
+            - reviewChangeSet
+          filters:
+            branches:
+              only:
+                - master
+      - dbSetupAndMigrate:
+          requires:
+            - executeChangeSet
+          filters:
+            branches:
+              only:
+                - master
+      - deleteChangeSet:
+          requires:
+            - createChangeSet
+          filters:
+            branches:
+              ignore:
+                - master
