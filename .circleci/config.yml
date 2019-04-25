@@ -34,9 +34,9 @@ jobs:
             - node_modules
           key: node-modules-dev-{{ checksum "package-lock.json" }}
       - setup_remote_docker
-      - run: npm run test:int:up
+      - run: sudo npm run test:int:up
       - run: npm run test:int
-      - run: npm run test:int:down
+      - run: sudo npm run test:int:down
   createChangeSet:
     docker:
       - image: circleci/node:8
