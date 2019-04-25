@@ -13,13 +13,11 @@ jobs:
           keys:
             - node-modules-dev-{{ checksum package-lock.json }}
             - node-modules-dev-
-      - run: |
-          NODE_ENV=development npm install
+      - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          keys: 
-            - node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum package-lock.json }}
       - run: npm run test:unit
   intTest:
     docker:
@@ -30,13 +28,11 @@ jobs:
           keys:
             - node-modules-dev-{{ checksum package-lock.json }}
             - node-modules-dev
-      - run: |
-          NODE_ENV=development npm install
+      - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          keys: 
-            - node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum package-lock.json }}
       - setup_remote_docker
       - run: npm run test:up
       - run: npm run test:int
@@ -50,15 +46,12 @@ jobs:
           keys:
             - node-modules-{{ checksum package-lock.json }}
             - node-modules
-      - run: |
-          npm install
+      - run: npm install
       - save_cache:
           paths:
             - node_modules
-          keys: 
-            - node-modules-{{ checksum package-lock.json }}
-      - run: |
-          sudo apt-get install python-dev
+          key: node-modules-{{ checksum package-lock.json }}
+      - run: sudo apt-get install python-dev
       - aws-cli/install
       - run: |
           PARAMETERS="CoreStack=$CORE_STACK "
@@ -84,8 +77,7 @@ jobs:
     steps:
       - attach_workspace:
           at: workspace
-      - run: |
-          sudo apt-get install python-dev
+      - run: sudo apt-get install python-dev
       - aws-cli/install
       - run: |
           CHANGE_SET_NAME=$(cat workspace/changesetname.txt)
@@ -101,13 +93,11 @@ jobs:
           keys:
             - node-modules-dev-{{ checksum package-lock.json }}
             - node-modules-dev-
-      - run: |
-          NODE_ENV=development npm install
+      - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          keys: 
-            - node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum package-lock.json }}
       - run: |
           npm run infra:allow-ssh-my-ip -- --stack-name $CORE_STACK
           npm run infra:create-rds-tunnel -- --stack-name $CORE_STACK --port 9000
@@ -137,7 +127,7 @@ jobs:
       - run: |
           CHANGE_SET_NAME=$(cat workspace/changesetname.txt)
           aws cloudformation delete-change-set --change-set-name $CHANGE_SET_NAME
-        
+
 workflows:
   test_and_deploy:
     jobs:
