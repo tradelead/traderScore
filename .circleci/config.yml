@@ -11,15 +11,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-{{ checksum package-lock.json }}
-            - node-modules-
+            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev-
       - run: |
           NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
           keys: 
-            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum package-lock.json }}
       - run: npm run test:unit
   intTest:
     docker:
@@ -28,24 +28,35 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-{{ checksum package-lock.json }}
-            - node-modules-
+            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev
       - run: |
           NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
           keys: 
-            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum package-lock.json }}
       - setup_remote_docker
       - run: npm run test:up
       - run: npm run test:int
       - run: npm run test:down
   createChangeSet:
     docker:
-      - image: circleci/buildpack-deps:jessie
+      - image: circleci/node:8
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - node-modules-{{ checksum package-lock.json }}
+            - node-modules
+      - run: |
+          npm install
+      - save_cache:
+          paths:
+            - node_modules
+          keys: 
+            - node-modules-{{ checksum package-lock.json }}
       - run: |
           sudo apt-get install python-dev
       - aws-cli/install
@@ -58,7 +69,8 @@ jobs:
           PARAMETERS+="MockExchangeService=false "
 
           mkdir workspace
-          aws cloudformation deploy --stack-name $STACK_NAME --no-execute-changeset --capabilities CAPABILITY_IAM --template-file template.yml --parameter-overrides $PARAMETERS | tee workspace/changeset.txt
+          aws cloudformation package --template-file template.yml --s3-bucket $S3_CODE_BUCKET --output-template-file package.yml
+          aws cloudformation deploy --stack-name $STACK_NAME --no-execute-changeset --capabilities CAPABILITY_IAM --template-file package.yml --parameter-overrides $PARAMETERS | tee workspace/changeset.txt
           CHANGE_SET_NAME=$(grep -o "arn:aws:cloudformation.*" workspace/changeset.txt)
           echo $CHANGE_SET_NAME >> workspace/changesetname.txt
           echo $CHANGE_SET_NAME
@@ -87,15 +99,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-{{ checksum package-lock.json }}
-            - node-modules-
+            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev-
       - run: |
-          npm install
+          NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
           keys: 
-            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum package-lock.json }}
       - run: |
           npm run infra:allow-ssh-my-ip -- --stack-name $CORE_STACK
           npm run infra:create-rds-tunnel -- --stack-name $CORE_STACK --port 9000
