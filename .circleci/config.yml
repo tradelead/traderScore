@@ -11,13 +11,13 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum "package-lock.json" }}
             - node-modules-dev
       - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          key: node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum "package-lock.json" }}
       - run: npm run test:unit
   intTest:
     docker:
@@ -26,13 +26,13 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum "package-lock.json" }}
             - node-modules-dev
       - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          key: node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum "package-lock.json" }}
       - setup_remote_docker
       - run: npm run test:int:up
       - run: npm run test:int
@@ -44,13 +44,13 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-{{ checksum package-lock.json }}
+            - node-modules-{{ checksum "package-lock.json" }}
             - node-modules
       - run: npm install
       - save_cache:
           paths:
             - node_modules
-          key: node-modules-{{ checksum package-lock.json }}
+          key: node-modules-{{ checksum "package-lock.json" }}
       - run: sudo apt-get install python-dev
       - aws-cli/install
       - run: |
@@ -91,13 +91,13 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - node-modules-dev-{{ checksum package-lock.json }}
+            - node-modules-dev-{{ checksum "package-lock.json" }}
             - node-modules-dev
       - run: NODE_ENV=development npm install
       - save_cache:
           paths:
             - node_modules
-          key: node-modules-dev-{{ checksum package-lock.json }}
+          key: node-modules-dev-{{ checksum "package-lock.json" }}
       - run: |
           npm run infra:allow-ssh-my-ip -- --stack-name $CORE_STACK
           npm run infra:create-rds-tunnel -- --stack-name $CORE_STACK --port 9000
