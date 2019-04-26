@@ -5,9 +5,9 @@
   "scripts": {
     "test": "jest",
     "test:unit": "jest unit",
-    "test:int:up": "docker-compose -f dc-test-dev.yml up -d --remove-orphans",
-    "test:int:down": "docker-compose -f dc-test-dev.yml down --remove-orphans",
-    "test:int": "jest --setupTestFrameworkScriptFile=./tests/env-setup.js --runInBand --forceExit --detectOpenHandles",
+    "test:int:up": "docker-compose -f dc-test.yml up -d --remove-orphans",
+    "test:int:down": "docker-compose -f dc-test.yml down --remove-orphans",
+    "test:int": "jest --setupTestFrameworkScriptFile=./tests/env-setup.js --runInBand --forceExit --detectOpenHandles int",
     "db:migrate": "(cd src/adapters/knex && knex migrate:latest --env production)",
     "db:setup": "node src/adapters/knex/scripts/dbSetup.js",
     "infra:allow-ssh-my-ip": "node infra/scripts/allowSSHMyIP.js",
