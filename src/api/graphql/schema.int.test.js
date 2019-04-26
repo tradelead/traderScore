@@ -183,6 +183,8 @@ test('getTopTraders', async () => {
   }
 
   const { getTopTraders } = data;
+  console.log(getTopTraders);
+  expect(getTopTraders).toHaveLength(2);
   getTopTraders.forEach((trader) => {
     expect(trader.id).toBeDefined();
     expect(trader.rank).toBeDefined();

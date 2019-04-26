@@ -78,10 +78,15 @@ module.exports = class ScoreRepo {
     const unionAllSQL = sqls.join(' union all ');
 
     const [rows] = await this.knexConn.raw(unionAllSQL);
+    const traderRows = rows.reduce((acc, row) => {
+      acc[row.traderID] = acc[row.traderID] || [];
+      acc[row.traderID].push(row);
+      return acc;
+    }, {});
 
     const resp = [];
     reqs.forEach((req) => {
-      const items = rows.splice(0, req.limit || 10);
+      const items = traderRows[req.traderID] || [];
       const itemsWithTime = items.map(item => Object.assign(
         {},
         item,
