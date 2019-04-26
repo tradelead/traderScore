@@ -23,11 +23,6 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run: |
-          export NVM_DIR="/opt/circleci/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install v8.11.3
-          nvm alias default v8.11.3
       - restore_cache:
           keys:
             - node-modules-dev-{{ checksum "package-lock.json" }}
@@ -38,7 +33,12 @@ jobs:
             - node_modules
           key: node-modules-dev-{{ checksum "package-lock.json" }}
       - run: npm run test:int:up
-      - run: npm run test:int
+      - run: |
+          export NVM_DIR="/opt/circleci/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install v8.11.3
+          nvm alias default v8.11.3
+          npm run test:int
       - run: npm run test:int:down
   createChangeSet:
     docker:
