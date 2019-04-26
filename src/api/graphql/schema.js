@@ -1,6 +1,7 @@
 const gql = require('graphql-tag');
 const { makeExecutableSchema } = require('graphql-tools');
 const Long = require('graphql-type-long');
+const DataLoader = require('dataloader');
 const app = require('../../app.bootstrap');
 
 const typeDefs = gql`
@@ -40,6 +41,10 @@ schema {
 }
 `;
 
+/** trader score data loader */
+const batchTraderScores = (items => app.useCases.getTraderScoreHistories(items));
+const traderScoreLoader = new DataLoader(keys => batchTraderScores(keys));
+
 const resolvers = {
   Query: {
     async getTrader(root, { id }) {
@@ -56,9 +61,8 @@ const resolvers = {
   },
   Trader: {
     async scores(trader, { input }) {
-      return app.useCases.getTraderScoreHistory(Object.assign({}, input, {
-        traderID: trader.id,
-      }));
+      const params = Object.assign({}, input, { traderID: trader.id });
+      return traderScoreLoader.load(params);
     },
   },
   Long,
