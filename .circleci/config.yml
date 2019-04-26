@@ -23,6 +23,11 @@ jobs:
     machine: true
     steps:
       - checkout
+      - run: |
+          export NVM_DIR="/opt/circleci/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install v8.11.3
+          nvm alias default v8.11.3
       - restore_cache:
           keys:
             - node-modules-dev-{{ checksum "package-lock.json" }}
