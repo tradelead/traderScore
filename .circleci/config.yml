@@ -137,17 +137,9 @@ workflows:
       - unitTest
       - intTest
       - createChangeSet
-      - reviewChangeSet:
-          type: approval
-          requires:
-            - createChangeSet
-          filters:
-            branches:
-              only:
-                - master
       - executeChangeSet:
           requires:
-            - reviewChangeSet
+            - createChangeSet
           filters:
             branches:
               only:
