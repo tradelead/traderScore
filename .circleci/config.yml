@@ -113,8 +113,8 @@ jobs:
           export DATABASE_POOL_MIN=1
           export DATABASE_POOL_MAX=2
 
-          npm run db:setup -- --stack-name $CORE_STACK
-          npm run db:migrate -- --stack-name $CORE_STACK
+          npm run db:setup
+          npm run db:migrate
 
           npm run infra:close-rds-tunnel -- --stack-name $CORE_STACK
           npm run infra:deny-ssh-my-ip -- --stack-name $CORE_STACK
