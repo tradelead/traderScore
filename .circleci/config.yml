@@ -20,8 +20,7 @@ jobs:
           key: node-modules-dev-{{ checksum "package-lock.json" }}
       - run: npm run test:unit
   intTest:
-    docker:
-      - image: circleci/node:8
+    machine: true
     steps:
       - checkout
       - restore_cache:
@@ -33,7 +32,6 @@ jobs:
           paths:
             - node_modules
           key: node-modules-dev-{{ checksum "package-lock.json" }}
-      - setup_remote_docker
       - run: npm run test:int:up
       - run: npm run test:int
       - run: npm run test:int:down

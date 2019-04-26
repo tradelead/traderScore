@@ -3,8 +3,8 @@ version: '2.1'
 services:
   migration:
     image: node:8-alpine
-    command: sh -c "cd /usr/app/src/adapters/knex && npm install knex mysql && node_modules/.bin/knex migrate:latest"
-    working_dir: /usr/app
+    command: sh -c "npm install knex mysql && node_modules/.bin/knex migrate:latest"
+    working_dir: /usr/app/src/adapters/knex
     volumes:
       - ./src/adapters/knex:/usr/app/src/adapters/knex
     environment:
@@ -20,6 +20,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+
   mysql:
     image: mysql:5.7
     environment:
@@ -30,8 +31,10 @@ services:
       - 9906:3306
     healthcheck:
       test: '/usr/bin/mysql --user=root --password=root --execute "SHOW DATABASES";'
-      timeout: 10s
-      retries: 24
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   redis_db:
     image: redis:5.0
     ports:
@@ -54,6 +57,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: '/usr/bin/mysql --host mysql --user=root --password=root --database=test --execute "SELECT 1 FROM knex_migrations LIMIT 1";'
-      interval: 10s
-      timeout: 10s
+      interval: 5s
+      timeout: 5s
       retries: 24
