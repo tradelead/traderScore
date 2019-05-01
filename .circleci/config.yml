@@ -102,8 +102,8 @@ jobs:
             - node_modules
           key: node-modules-dev-{{ checksum "package-lock.json" }}
       - run: |
-          tl-infra allow-ssh-my-ip --stack-name $CORE_STACK
-          tl-infra create-rds-tunnel --stack-name $CORE_STACK --port 9000
+          node_modules/.bin/tl-infra allow-ssh-my-ip --stack-name $CORE_STACK
+          node_modules/.bin/tl-infra create-rds-tunnel --stack-name $CORE_STACK --port 9000
 
           export DATABASE_HOST=127.0.0.1
           export DATABASE_PORT=9000
@@ -116,8 +116,8 @@ jobs:
           npm run db:setup
           npm run db:migrate
 
-          tl-infra close-rds-tunnel --stack-name $CORE_STACK
-          tl-infra deny-ssh-my-ip --stack-name $CORE_STACK
+          node_modules/.bin/tl-infra close-rds-tunnel --stack-name $CORE_STACK
+          node_modules/.bin/tl-infra deny-ssh-my-ip --stack-name $CORE_STACK
   deleteChangeSet:
     docker:
       - image: circleci/buildpack-deps:jessie
