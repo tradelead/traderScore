@@ -127,6 +127,7 @@ const tradeServiceFactory = new TradeServiceFactory({
 const CalculateTraderScore = require('./core/useCases/CalculateTraderScore');
 const GetTopTraders = require('./core/useCases/GetTopTraders');
 const GetTraderScoreHistory = require('./core/useCases/GetTraderScoreHistory');
+const GetTraderScoreHistories = require('./core/useCases/GetTraderScoreHistories');
 const GetTradersRank = require('./core/useCases/GetTradersRank');
 const IngressDeposit = require('./core/useCases/IngressDeposit');
 const IngressFilledOrder = require('./core/useCases/IngressFilledOrder');
@@ -151,6 +152,8 @@ const getTopTraders = new GetTopTraders({
 });
 
 const getTraderScoreHistory = new GetTraderScoreHistory({ traderScoreRepo });
+
+const getTraderScoreHistories = new GetTraderScoreHistories({ traderScoreRepo });
 
 const getTradersRank = new GetTradersRank({ traderScoreRepo });
 
@@ -239,6 +242,7 @@ module.exports = {
   useCases: {
     getTopTraders: getTopTraders.execute.bind(getTopTraders),
     getTraderScoreHistory: getTraderScoreHistory.execute.bind(getTraderScoreHistory),
+    getTraderScoreHistories: getTraderScoreHistories.execute.bind(getTraderScoreHistories),
     getTradersRank: getTradersRank.execute.bind(getTradersRank),
     ingressDeposit: ingressDeposit.execute.bind(ingressDeposit),
     ingressFilledOrder: ingressFilledOrder.execute.bind(ingressFilledOrder),

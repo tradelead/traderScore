@@ -365,6 +365,12 @@ describe('getTradersScoreHistories', () => {
         endTime: 1550000000000,
       },
       {
+        traderID: 'traderThatDoesNotExist',
+        period: 'day',
+        limit: 2,
+        endTime: 1550000000000,
+      },
+      {
         traderID: 'trader2',
         period: 'day',
         limit: 2,
@@ -389,6 +395,7 @@ describe('getTradersScoreHistories', () => {
           time: 1540000000000,
         },
       ],
+      [],
       [
         {
           ID: 5,

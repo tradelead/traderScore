@@ -21,6 +21,7 @@
     "apollo-server-lambda": "^2.4.8",
     "aws-sdk": "^2.427.0",
     "bignumber.js": "^8.1.1",
+    "dataloader": "^1.4.0",
     "debug": "^4.1.1",
     "graphql": "^14.2.1",
     "graphql-tag": "^2.10.1",
