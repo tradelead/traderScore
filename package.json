@@ -46,6 +46,7 @@
     "jest": "^24.1.0",
     "mock-require": "^3.0.3",
     "sinon": "^7.2.5",
+    "tradelead-core-infra": "git+https://github.com/tradelead/codeInfra.git",
     "worker-farm": "^1.6.0"
   }
 }
