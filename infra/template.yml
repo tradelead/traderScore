@@ -187,6 +187,8 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewFilledOrderQueue:
+    Properties:
+      VisibilityTimeout: 20
     Type: AWS::SQS::Queue
   NewFilledOrderSubscription:
     Properties:
@@ -272,6 +274,8 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewSuccessfulDepositQueue:
+    Properties:
+      VisibilityTimeout: 20
     Type: AWS::SQS::Queue
   NewSuccessfulDepositSubscription:
     Properties:
@@ -357,6 +361,8 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewSuccessfulWithdrawalQueue:
+    Properties:
+      VisibilityTimeout: 20
     Type: AWS::SQS::Queue
   NewSuccessfulWithdrawalSubscription:
     Properties:
@@ -442,6 +448,8 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   NewTraderExchangeQueue:
+    Properties:
+      VisibilityTimeout: 600
     Type: AWS::SQS::Queue
   NewTraderExchangeSubscription:
     Properties:
@@ -527,6 +535,8 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   RemoveTraderExchangeQueue:
+    Properties:
+      VisibilityTimeout: 20
     Type: AWS::SQS::Queue
   RemoveTraderExchangeSubscription:
     Properties:
@@ -592,5 +602,7 @@ Resources:
             Fn::Sub: ${CoreStack}-SubnetID
     Type: AWS::Serverless::Function
   ScoreUpdatesQueue:
+    Properties:
+      VisibilityTimeout: 60
     Type: AWS::SQS::Queue
 Transform: AWS::Serverless-2016-10-31

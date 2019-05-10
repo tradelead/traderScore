@@ -72,7 +72,7 @@ def createSQSConsumer(name, timeout=5, snsTopic=None):
 
     # create queue
     res['QueueName'] = name + 'Queue'
-    queue = t.add_resource(sqs.Queue(res['QueueName']))
+    queue = t.add_resource(sqs.Queue(res['QueueName'], VisibilityTimeout = timeout*2))
     queueArn = GetAtt(res['QueueName'], 'Arn')    
 
     # create subscription
