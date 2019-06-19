@@ -6,6 +6,8 @@ const requestSchema = Joi.object().keys({
   endTime: Joi.number().greater(0).label('End Time'),
   limit: Joi.number().default(100).less(500).label('Limit'),
   period: Joi.string().label('Period'),
+  duration: Joi.number().label('Duration'),
+  groupBy: Joi.string().valid('day', 'week').label('Group By'),
 });
 
 module.exports = class GetTraderScoreHistory {

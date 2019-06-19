@@ -1,6 +1,18 @@
 const debug = require('debug')('traderScore:ScoreRepo');
 const msToMySQLFormat = require('./msToMySQLFormat');
 
+function dateFromDay(year, day) {
+  return new Date(Date.UTC(year, 0, day));
+}
+
+function dateFromWeek(y, w) {
+  // return date at beginning of week. (Sunday) like MYSQL WEEK() datetime function
+  const firstDateOfYear = new Date(Date.UTC(y, 0, 1));
+  const d = (1 + (w * 7)) - firstDateOfYear.getUTCDay();
+
+  return dateFromDay(y, d);
+}
+
 module.exports = class ScoreRepo {
   constructor({
     knexConn,
@@ -45,8 +57,10 @@ module.exports = class ScoreRepo {
       traderID,
       startTime,
       endTime,
+      duration,
       limit,
       period,
+      groupBy,
       sort,
     }) => {
       const filters = {
@@ -65,10 +79,39 @@ module.exports = class ScoreRepo {
 
       if (startTime > 0) {
         query.andWhere('time', '>=', msToMySQLFormat(startTime));
+      } else if (duration > 0) {
+        query.andWhere('time', '>=', msToMySQLFormat(Date.now() - duration));
       }
 
       if (endTime > 0) {
         query.andWhere('time', '<=', msToMySQLFormat(endTime));
+      }
+
+      const sortWithDefault = sort || 'desc';
+      if (groupBy === 'day') {
+        query
+          .select(
+            'traderID',
+            'period',
+            this.knexConn.raw('AVG(score) as score'),
+            this.knexConn.raw('YEAR(time) as year'),
+            this.knexConn.raw('DAYOFYEAR(time) as dayOfYear'),
+          )
+          .groupByRaw('YEAR(time), DAYOFYEAR(time), traderID, period')
+          .clearOrder()
+          .orderByRaw(`YEAR(time), DAYOFYEAR(time) ${sortWithDefault}`);
+      } else if (groupBy === 'week') {
+        query
+          .select(
+            'traderID',
+            'period',
+            this.knexConn.raw('AVG(score) as score'),
+            this.knexConn.raw('YEAR(time) as year'),
+            this.knexConn.raw('WEEK(time) as weekOfYear'),
+          )
+          .groupByRaw('YEAR(time), WEEK(time), traderID, period')
+          .clearOrder()
+          .orderByRaw(`YEAR(time), WEEK(time) ${sortWithDefault}`);
       }
 
       return query.toString();
@@ -87,11 +130,30 @@ module.exports = class ScoreRepo {
     const resp = [];
     reqs.forEach((req) => {
       const items = traderRows[req.traderID] || [];
-      const itemsWithTime = items.map(item => Object.assign(
-        {},
-        item,
-        { time: new Date(item.time).getTime() },
-      ));
+
+      const itemsWithTime = items.map((item) => {
+        let time;
+        if (item.dayOfYear) {
+          time = dateFromDay(item.year, item.dayOfYear).getTime();
+        } else if (item.weekOfYear) {
+          time = dateFromWeek(item.year, item.weekOfYear).getTime();
+        } else {
+          time = new Date(item.time).getTime();
+        }
+
+        const newItem = Object.assign(
+          {},
+          item,
+          { time },
+        );
+
+        delete newItem.year;
+        delete newItem.dayOfYear;
+        delete newItem.weekOfYear;
+
+        return newItem;
+      });
+
       resp.push(itemsWithTime);
     });
 

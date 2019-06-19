@@ -7,6 +7,8 @@ const defaultReq = [{
   endTime: 100,
   limit: 25,
   period: 'day',
+  groupBy: 'day',
+  duration: 30 * 24 * 60 * 60 * 1000,
 }];
 
 let deps = {};
@@ -120,5 +122,53 @@ describe('data validation', () => {
     req[0].endTime = 'test';
 
     return expect(useCase.execute(req)).rejects.toThrow('"End Time" must be a number');
+  });
+
+  it('doesn\'t throws error if duration is numeric', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].duration = 123;
+
+    return expect(useCase.execute(req)).resolves.toBeDefined();
+  });
+
+  it('doesn\'t throws error if duration is numeric string', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].duration = '123';
+
+    return expect(useCase.execute(req)).resolves.toBeDefined();
+  });
+
+  it('throws error if duration is non-numeric string', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].duration = 'test';
+
+    return expect(useCase.execute(req)).rejects.toThrow('"Duration" must be a number');
+  });
+
+  it('doesn\'t throw error if groupBy equals day', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].groupBy = 'day';
+
+    return expect(useCase.execute(req)).resolves.toBeDefined();
+  });
+
+  it('doesn\'t throw error if groupBy equals week', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].groupBy = 'week';
+
+    return expect(useCase.execute(req)).resolves.toBeDefined();
+  });
+
+  it('throws error if groupBy isn\'t approved string', async () => {
+    const useCase = new GetTraderScoreHistories(deps);
+    const req = JSON.parse(JSON.stringify(defaultReq));
+    req[0].groupBy = 'test';
+
+    return expect(useCase.execute(req)).rejects.toThrow('"Group By" must be one of [day, week]');
   });
 });

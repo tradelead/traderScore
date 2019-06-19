@@ -1,3 +1,4 @@
+const sinon = require('sinon');
 const knexFactory = require('knex');
 const { EventEmitter } = require('events');
 const Redis = require('ioredis');
@@ -410,6 +411,238 @@ describe('getTradersScoreHistories', () => {
           period: 'day',
           score: 3,
           time: 1560000000000,
+        },
+      ],
+    ]);
+  });
+
+  it('returns items starting at now - duration', async () => {
+    const clock = sinon.useFakeTimers(1580000000000);
+
+    const scoreHistories = await scoreRepo.getTradersScoreHistories([
+      {
+        traderID: 'trader1',
+        period: 'day',
+        duration: 30000000000,
+        sort: 'asc',
+      },
+      {
+        traderID: 'trader2',
+        period: 'day',
+        duration: 10000000000,
+        sort: 'asc',
+      },
+    ]);
+
+    expect(JSON.parse(JSON.stringify(scoreHistories))).toEqual([
+      [
+        {
+          ID: 2,
+          traderID: 'trader1',
+          score: 2,
+          period: 'day',
+          time: 1550000000000,
+        },
+        {
+          ID: 3,
+          traderID: 'trader1',
+          score: 3,
+          period: 'day',
+          time: 1560000000000,
+        },
+      ],
+      [
+        {
+          ID: 5,
+          traderID: 'trader2',
+          score: 4,
+          period: 'day',
+          time: 1570000000000,
+        },
+        {
+          ID: 6,
+          traderID: 'trader2',
+          score: 5,
+          period: 'day',
+          time: 1580000000000,
+        },
+      ],
+    ]);
+    clock.restore();
+  });
+
+  it('returns items grouped by day with average score within group', async () => {
+    await knexTrx.from(tableName).truncate();
+    await knexTrx.from(tableName).insert([
+      {
+        traderID: 'trader1',
+        score: 1,
+        period: 'week',
+        time: msToMySQLFormat(1546362000000),
+      },
+      {
+        traderID: 'trader1',
+        score: 2,
+        period: 'week',
+        time: msToMySQLFormat(1546365600000),
+      },
+      {
+        traderID: 'trader1',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1546538400000),
+      },
+      {
+        traderID: 'trader2',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1546624800000),
+      },
+      {
+        traderID: 'trader2',
+        score: 4,
+        period: 'week',
+        time: msToMySQLFormat(1546628400000),
+      },
+      {
+        traderID: 'trader2',
+        score: 5,
+        period: 'week',
+        time: msToMySQLFormat(1546801200000),
+      },
+    ]);
+
+    const scoreHistories = await scoreRepo.getTradersScoreHistories([
+      {
+        traderID: 'trader1',
+        period: 'week',
+        groupBy: 'day',
+        sort: 'asc',
+      },
+      {
+        traderID: 'trader2',
+        period: 'week',
+        groupBy: 'day',
+        sort: 'asc',
+      },
+    ]);
+
+    expect(JSON.parse(JSON.stringify(scoreHistories))).toEqual([
+      [
+        {
+          traderID: 'trader1',
+          score: 1.5,
+          period: 'week',
+          time: 1546300800000, // beginning of day in UTC
+        },
+        {
+          traderID: 'trader1',
+          score: 3,
+          period: 'week',
+          time: 1546473600000, // beginning of day in UTC
+        },
+      ],
+      [
+        {
+          traderID: 'trader2',
+          score: 3.5,
+          period: 'week',
+          time: 1546560000000, // beginning of day in UTC
+        },
+        {
+          traderID: 'trader2',
+          score: 5,
+          period: 'week',
+          time: 1546732800000, // beginning of day in UTC
+        },
+      ],
+    ]);
+  });
+
+  it('returns items grouped by week with average score within group', async () => {
+    await knexTrx.from(tableName).truncate();
+    await knexTrx.from(tableName).insert([
+      {
+        traderID: 'trader1',
+        score: 1,
+        period: 'week',
+        time: msToMySQLFormat(1546797600000),
+      },
+      {
+        traderID: 'trader1',
+        score: 2,
+        period: 'week',
+        time: msToMySQLFormat(1547056800000),
+      },
+      {
+        traderID: 'trader1',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1547920800000),
+      },
+      {
+        traderID: 'trader2',
+        score: 3,
+        period: 'week',
+        time: msToMySQLFormat(1548093600000),
+      },
+      {
+        traderID: 'trader2',
+        score: 4,
+        period: 'week',
+        time: msToMySQLFormat(1548352800000),
+      },
+      {
+        traderID: 'trader2',
+        score: 5,
+        period: 'week',
+        time: msToMySQLFormat(1549044000000),
+      },
+    ]);
+
+    const scoreHistories = await scoreRepo.getTradersScoreHistories([
+      {
+        traderID: 'trader1',
+        period: 'week',
+        groupBy: 'week',
+        sort: 'asc',
+      },
+      {
+        traderID: 'trader2',
+        period: 'week',
+        groupBy: 'week',
+        sort: 'asc',
+      },
+    ]);
+
+    console.log(scoreHistories);
+    expect(JSON.parse(JSON.stringify(scoreHistories))).toEqual([
+      [
+        {
+          traderID: 'trader1',
+          score: 1.5,
+          period: 'week',
+          time: 1546732800000, // beginning of day in UTC
+        },
+        {
+          traderID: 'trader1',
+          score: 3,
+          period: 'week',
+          time: 1547337600000, // beginning of day in UTC
+        },
+      ],
+      [
+        {
+          traderID: 'trader2',
+          score: 3.5,
+          period: 'week',
+          time: 1547942400000, // beginning of day in UTC
+        },
+        {
+          traderID: 'trader2',
+          score: 5,
+          period: 'week',
+          time: 1548547200000, // beginning of day in UTC
         },
       ],
     ]);
