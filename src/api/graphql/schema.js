@@ -15,6 +15,11 @@ input ScoreInput {
   limit: Int!
   "A score period. If empty, global score period is assumed"
   period: String
+  "Group scores by 'day' or 'week'"
+  groupBy: String
+  "A milliseconds duration"
+  duration: Long
+  
 }
 
 type Score {
