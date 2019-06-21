@@ -17,7 +17,6 @@ const events = new EventEmitter();
 /**
  * collect env vars
  */
-const exchangeActivityFetchLimit = parseInt(process.env.EXCHANGE_ACTIVITY_FETCH_LIMIT, 10) || 100;
 const getEntriesLimitPerFetch = parseInt(process.env.ENTRIES_FETCH_LIMIT, 10) || 100;
 const tradeFetchLimit = parseInt(process.env.TRADE_FETCH_LIMIT, 10) || 100;
 const scorePeriodConfig = JSON.parse(process.env.SCORE_PERIOD_CONFIG);
@@ -33,14 +32,12 @@ const SQSQueue = require('./adapters/SQSQueue');
 const ScoreUpdateScheduleRepo = require('./adapters/knex/ScoreUpdateScheduleRepo');
 
 const UnitOfWorkFactory = require('./adapters/knex/UnitOfWorkFactory');
-const ExchangeIngressRepoFactory = require('./adapters/knex/factories/ExchangeIngressRepoFactory');
 const PortfolioRepoFactory = require('./adapters/knex/factories/PortfolioRepoFactory');
 const OrderRepoFactory = require('./adapters/knex/factories/OrderRepoFactory');
 const TransferRepoFactory = require('./adapters/knex/factories/TransferRepoFactory');
 const ScoreRepoFactory = require('./adapters/knex/factories/ScoreRepoFactory');
 const TradeRepoFactory = require('./adapters/knex/factories/TradeRepoFactory');
 
-const exchangeIngressRepoFactory = new ExchangeIngressRepoFactory();
 const portfolioRepoFactory = new PortfolioRepoFactory();
 const orderRepoFactory = new OrderRepoFactory();
 const transferRepoFactory = new TransferRepoFactory();
@@ -49,7 +46,6 @@ const tradeRepoFactory = new TradeRepoFactory();
 
 const mutex = RedisMutex({ redis });
 const scoreUpdateScheduleRepo = new ScoreUpdateScheduleRepo({ knexConn: knex });
-const exchangeIngressRepo = exchangeIngressRepoFactory.create({ knexConn: knex });
 const traderScoreRepo = traderScoreRepoFactory.create({ knexConn: knex, knex, redis });
 
 /**
@@ -72,7 +68,7 @@ const ScoreServiceFactory = require('./adapters/knex/factories/ScoreServiceFacto
 const EntryServiceFactory = require('./adapters/knex/factories/EntryServiceFactory');
 const TradeServiceFactory = require('./adapters/knex/factories/TradeServiceFactory');
 
-// TODO: inject exchangeAPIFactory, traderExchangeKeysRepo
+// TODO: inject exchangeAPIFactory
 const exchangeService = new ExchangeService({});
 
 const traderScoreMutex = new TraderScoreMutex({ mutex });
@@ -86,13 +82,11 @@ const orderServiceFactory = new OrderServiceFactory({
   orderRepoFactory,
   portfolioServiceFactory,
 });
-const orderService = orderServiceFactory.create({ knexConn: knex });
 
 const transferServiceFactory = new TransferServiceFactory({
   transferRepoFactory,
   portfolioServiceFactory,
 });
-const transferService = transferServiceFactory.create({ knexConn: knex });
 
 const scoreServiceFactory = new ScoreServiceFactory({
   traderScorePeriodConfig: scorePeriodConfig,
@@ -132,8 +126,6 @@ const GetTradersRank = require('./core/useCases/GetTradersRank');
 const IngressDeposit = require('./core/useCases/IngressDeposit');
 const IngressFilledOrder = require('./core/useCases/IngressFilledOrder');
 const IngressWithdrawal = require('./core/useCases/IngressWithdrawal');
-const IngressTraderExchange = require('./core/useCases/IngressTraderExchange');
-const RemoveTraderExchange = require('./core/useCases/RemoveTraderExchange');
 
 const calcTraderScoreUOWFactory = new UnitOfWorkFactory({
   knex,
@@ -161,7 +153,6 @@ const depositUOWFactory = new UnitOfWorkFactory({
   knex,
   events,
   serviceFactories: {
-    exchangeIngressRepo: exchangeIngressRepoFactory,
     transferService: transferServiceFactory,
   },
 });
@@ -173,7 +164,6 @@ const filledOrderUOWFactory = new UnitOfWorkFactory({
   serviceFactories: {
     orderService: orderServiceFactory,
     tradeService: tradeServiceFactory,
-    exchangeIngressRepo: exchangeIngressRepoFactory,
   },
 });
 const ingressFilledOrder = new IngressFilledOrder({ unitOfWorkFactory: filledOrderUOWFactory });
@@ -184,32 +174,9 @@ const withdrawalUOWFactory = new UnitOfWorkFactory({
   serviceFactories: {
     transferService: transferServiceFactory,
     tradeService: tradeServiceFactory,
-    exchangeIngressRepo: exchangeIngressRepoFactory,
   },
 });
 const ingressWithdrawal = new IngressWithdrawal({ unitOfWorkFactory: withdrawalUOWFactory });
-
-const ingressExchangeUOWFactory = new UnitOfWorkFactory({
-  knex,
-  events,
-  serviceFactories: {
-    scoreService: scoreServiceFactory,
-    tradeService: tradeServiceFactory,
-    exchangeIngressRepo: exchangeIngressRepoFactory,
-  },
-});
-const ingressTraderExchange = new IngressTraderExchange({
-  ingressDeposit,
-  ingressFilledOrder,
-  ingressWithdrawal,
-  exchangeService,
-  orderService,
-  transferService,
-  exchangeActivityLimitPerFetch: exchangeActivityFetchLimit,
-  unitOfWorkFactory: ingressExchangeUOWFactory,
-});
-
-const removeTraderExchange = new RemoveTraderExchange({ exchangeIngressRepo });
 
 /**
  * setup controllers
@@ -247,8 +214,6 @@ module.exports = {
     ingressDeposit: ingressDeposit.execute.bind(ingressDeposit),
     ingressFilledOrder: ingressFilledOrder.execute.bind(ingressFilledOrder),
     ingressWithdrawal: ingressWithdrawal.execute.bind(ingressWithdrawal),
-    ingressTraderExchange: ingressTraderExchange.execute.bind(ingressTraderExchange),
-    removeTraderExchange: removeTraderExchange.execute.bind(removeTraderExchange),
     calculateTraderScore: calculateTraderScore.execute.bind(calculateTraderScore),
   },
   controllers: {

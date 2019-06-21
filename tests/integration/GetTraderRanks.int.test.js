@@ -56,59 +56,6 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
-  mockExchangeService.getFilledOrders.reset();
-
-  mockExchangeService.getFilledOrders
-    .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
-    .resolves([defaultOrder]);
-
-  mockExchangeService.getFilledOrders
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultOrder, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-      quantity: 6,
-    })]);
-
-  mockExchangeService.getFilledOrders.resolves([]);
-
-  mockExchangeService.getSuccessfulDeposits.reset();
-
-  mockExchangeService.getSuccessfulDeposits
-    .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
-    .resolves([defaultDeposit]);
-
-  mockExchangeService.getSuccessfulDeposits
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultDeposit, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-    })]);
-
-  mockExchangeService.getSuccessfulDeposits.resolves([]);
-
-  mockExchangeService.getSuccessfulWithdrawals.reset();
-
-  mockExchangeService.getSuccessfulWithdrawals
-    .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
-    .resolves([defaultWithdrawal]);
-
-  mockExchangeService.getSuccessfulWithdrawals
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultWithdrawal, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-      quantity: 6,
-    })]);
-
-  mockExchangeService.getSuccessfulWithdrawals.resolves([]);
-
   mockExchangeService.getPrice.reset();
 
   mockExchangeService.getPrice
@@ -151,19 +98,30 @@ beforeEach(async () => {
     }
     return preferredQuoteAsset;
   });
+
+  // trader 1
+  await app.useCases.ingressDeposit(defaultDeposit);
+  await app.useCases.ingressFilledOrder(defaultOrder);
+  await app.useCases.ingressWithdrawal(defaultWithdrawal);
+
+  // trader 2
+  await app.useCases.ingressDeposit(Object.assign({}, defaultDeposit, {
+    exchangeID: 'bittrex',
+    traderID: 'trader2',
+  }));
+  await app.useCases.ingressFilledOrder(Object.assign({}, defaultOrder, {
+    exchangeID: 'bittrex',
+    traderID: 'trader2',
+    quantity: 6,
+  }));
+  await app.useCases.ingressWithdrawal(Object.assign({}, defaultWithdrawal, {
+    exchangeID: 'bittrex',
+    traderID: 'trader2',
+    quantity: 6,
+  }));
 });
 
 test('GetTraderRanks returns obj with proper ranks', async () => {
-  await app.useCases.ingressTraderExchange({
-    traderID: 'trader1',
-    exchangeID: 'binance',
-  });
-
-  await app.useCases.ingressTraderExchange({
-    traderID: 'trader2',
-    exchangeID: 'bittrex',
-  });
-
   const ranks = await app.useCases.getTradersRank({ traderIDs: ['trader1', 'trader2'] });
   expect(ranks).toEqual({
     trader1: 1,

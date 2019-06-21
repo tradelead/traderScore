@@ -2,26 +2,12 @@ const mock = require('mock-require');
 
 // const Deposit = require('../../src/core/models/Deposit');
 
-const oncePerTraderID = (onceValue, defaultValue) => {
-  const cache = {};
-  return async ({ traderID }) => {
-    if (!cache[traderID]) {
-      cache[traderID] = true;
-      return onceValue.map(item => Object.assign({}, item, { traderID }));
-    }
-    return defaultValue;
-  };
-};
-
 // const orders = [defaultOrder];
 // const deposits = [defaultDeposit];
 // const withdrawals = [defaultWithdrawal];
 
 mock('../../src/core/services/ExchangeService', function () {
   return {
-    getFilledOrders: oncePerTraderID([], []),
-    getSuccessfulDeposits: oncePerTraderID([], []),
-    getSuccessfulWithdrawals: oncePerTraderID([], []),
     isRootAsset: async ({ symbol }) => symbol === 'USDT',
     getPrice: async () => 1,
     getBTCValue: async () => 1,
