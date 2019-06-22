@@ -31,8 +31,10 @@
     "ioredis": "^4.9.0",
     "joi": "^14.3.1",
     "knex": "^0.16.3",
+    "memoizee": "^0.4.14",
     "minimist": "^1.2.0",
     "mysql": "^2.16.0",
+    "node-binance-api": "^0.9.4",
     "node-redis-warlock": "^0.2.0",
     "uuid": "^3.3.2",
     "verror": "^1.10.0"
