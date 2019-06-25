@@ -16,7 +16,6 @@ function sleep(ms) {
 
 async function flushDBs() {
   await redis.flushdb();
-  await knex('exchangeIngress').truncate();
   await knex('orders').truncate();
   await knex('portfolio').truncate();
   await knex('portfolioAssets').truncate();
@@ -35,26 +34,6 @@ afterAll(async () => {
   await redis.disconnect();
   await knex.destroy();
 });
-
-function generateIngressTraderExchangeLoad(workers, start, end) {
-  const promises = [];
-  for (let i = start; i < end; i += 1) {
-    promises.push(new Promise((resolve) => {
-      workers({
-        traderID: `trader${i}`,
-        exchangeID: 'binance',
-      }, (err) => {
-        if (err) {
-          console.error(err);
-        }
-
-        resolve();
-      });
-    }));
-  }
-
-  return Promise.all(promises);
-}
 
 function generateIngressDepositLoad(workers, start, end) {
   const promises = [];
@@ -81,18 +60,10 @@ function generateIngressDepositLoad(workers, start, end) {
 }
 
 test('ingressDeposit concurrent performance', async () => {
-  const ingressExchangeWorkers = workerFarm(
-    { maxConcurrentCallsPerWorker: 500, autoStart: true },
-    require.resolve('./IngressTraderExchange.worker'),
-  );
-
   const ingressDepositWorkers = workerFarm(
     { maxConcurrentCallsPerWorker: 500, autoStart: true },
     require.resolve('./IngressDeposit.worker'),
   );
-
-  // mark ingress exchange complete
-  await generateIngressTraderExchangeLoad(ingressExchangeWorkers, 0, 1000);
 
   // warm
   await generateIngressDepositLoad(ingressDepositWorkers, 0, 4);
@@ -100,7 +71,6 @@ test('ingressDeposit concurrent performance', async () => {
   console.time('ingressDeposit');
   await generateIngressDepositLoad(ingressDepositWorkers, 5, 1000);
   console.timeEnd('ingressDeposit');
-  workerFarm.end(ingressExchangeWorkers);
   workerFarm.end(ingressDepositWorkers);
   await sleep(200);
 }, 120000);

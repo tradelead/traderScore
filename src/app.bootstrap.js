@@ -23,6 +23,7 @@ const scorePeriodConfig = JSON.parse(process.env.SCORE_PERIOD_CONFIG);
 const numRecentTrades = parseInt(process.env.SCORE_RECENT_TRADES_NUM, 10) || 100;
 const rescoreFetchLimit = parseInt(process.env.RESCORE_TRADES_FETCH_LIMIT, 10) || 100;
 const scoreUpdatesQueueUrl = process.env.SCORE_UPDATES_QUEUE_URL;
+const binanceAPIKey = process.env.BINANCE_API_KEY;
 
 /**
  * setup adapters
@@ -61,7 +62,7 @@ const ScoreServiceFactory = require('./adapters/knex/factories/ScoreServiceFacto
 const EntryServiceFactory = require('./adapters/knex/factories/EntryServiceFactory');
 const TradeServiceFactory = require('./adapters/knex/factories/TradeServiceFactory');
 
-const exchangeAPIFactory = new ExchangeAPIFactory();
+const exchangeAPIFactory = new ExchangeAPIFactory({ binanceAPIKey });
 const exchangeService = new ExchangeService({ exchangeAPIFactory });
 
 const traderScoreMutex = new TraderScoreMutex({ mutex });
