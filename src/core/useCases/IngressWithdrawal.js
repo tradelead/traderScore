@@ -8,7 +8,6 @@ const schema = Joi.object().keys({
   asset: Joi.string().min(2).max(8).uppercase().required().label('Asset'),
   time: Joi.number().greater(0).required().label('Time'),
   quantity: Joi.number().positive().required().label('Quantity'),
-  past: Joi.boolean().label('Past'),
 }).unknown();
 
 module.exports = class IngressWithdrawal {
@@ -32,16 +31,6 @@ module.exports = class IngressWithdrawal {
     const unitOfWork = await this.unitOfWorkFactory.create();
 
     try {
-      if (!value.past) {
-        const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
-          traderID: value.traderID,
-          exchangeID: value.exchangeID,
-        });
-        if (!ingressCompleted) {
-          throw new Error('Exchange ingress not complete');
-        }
-      }
-
       const newTrade = unitOfWork.tradeService.newTrade({
         sourceType: 'withdrawal',
         sourceID: value.sourceID,

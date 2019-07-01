@@ -9,7 +9,6 @@ const redis = new Redis(process.env.REDIS_URL);
 
 module.exports = async function () {
   await redis.flushdb();
-  await knex('exchangeIngress').truncate();
   await knex('orders').truncate();
   await knex('portfolio').truncate();
   await knex('portfolioAssets').truncate();

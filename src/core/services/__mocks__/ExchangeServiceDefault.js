@@ -4,9 +4,6 @@ const Deposit = require('../../models/Deposit');
 const Withdrawal = require('../../models/Withdrawal');
 
 const mockExchangeService = {
-  getFilledOrders: sinon.stub(),
-  getSuccessfulDeposits: sinon.stub(),
-  getSuccessfulWithdrawals: sinon.stub(),
   getPrice: sinon.stub(),
   getBTCValue: sinon.stub(),
   isRootAsset: async ({ symbol }) => symbol === 'USDT',
@@ -52,46 +49,6 @@ const defaultWithdrawal = new Withdrawal({
   time: sampleTime,
   quantity: 12.345,
 });
-
-function oncePerTraderExchange(onceValueFn, defaultValue) {
-  const cache = {};
-  return async ({ traderID, exchangeID }) => {
-    const key = `${traderID}-${exchangeID}`;
-    if (cache[key]) {
-      return defaultValue;
-    }
-
-    cache[key] = true;
-    return onceValueFn({ traderID, exchangeID });
-  };
-}
-
-mockExchangeService.getFilledOrders.reset();
-mockExchangeService.getFilledOrders
-  .callsFake(oncePerTraderExchange(
-    ({ traderID, exchangeID }) => [
-      Object.assign({}, defaultOrder, { traderID, exchangeID }),
-    ],
-    [],
-  ));
-
-mockExchangeService.getSuccessfulDeposits.reset();
-mockExchangeService.getSuccessfulDeposits
-  .callsFake(oncePerTraderExchange(
-    ({ traderID, exchangeID }) => [
-      Object.assign({}, defaultDeposit, { traderID, exchangeID }),
-    ],
-    [],
-  ));
-
-mockExchangeService.getSuccessfulWithdrawals.reset();
-mockExchangeService.getSuccessfulWithdrawals
-  .callsFake(oncePerTraderExchange(
-    ({ traderID, exchangeID }) => [
-      Object.assign({}, defaultWithdrawal, { traderID, exchangeID }),
-    ],
-    [],
-  ));
 
 mockExchangeService.getPrice.reset();
 

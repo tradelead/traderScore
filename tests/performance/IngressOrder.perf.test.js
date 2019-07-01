@@ -16,7 +16,6 @@ function sleep(ms) {
 
 async function flushDBs() {
   await redis.flushdb();
-  await knex('exchangeIngress').truncate();
   await knex('orders').truncate();
   await knex('portfolio').truncate();
   await knex('portfolioAssets').truncate();
@@ -35,26 +34,6 @@ afterAll(async () => {
   await redis.disconnect();
   await knex.destroy();
 });
-
-function generateIngressTraderExchangeLoad(workers, start, end) {
-  const promises = [];
-  for (let i = start; i < end; i += 1) {
-    promises.push(new Promise((resolve) => {
-      workers({
-        traderID: `trader${i}`,
-        exchangeID: 'binance',
-      }, (err) => {
-        if (err) {
-          console.error(err);
-        }
-
-        resolve();
-      });
-    }));
-  }
-
-  return Promise.all(promises);
-}
 
 function generateIngressDepositLoad(workers, start, end) {
   const promises = [];
@@ -111,12 +90,7 @@ function generateIngressOrderLoad(workers, start, end) {
   return Promise.all(promises);
 }
 
-test('ingressDeposit concurrent performance', async () => {
-  const ingressExchangeWorkers = workerFarm(
-    { maxConcurrentCallsPerWorker: 500, autoStart: true },
-    require.resolve('./IngressTraderExchange.worker'),
-  );
-
+test('ingressOrder concurrent performance', async () => {
   const ingressDepositWorkers = workerFarm(
     { maxConcurrentCallsPerWorker: 500, autoStart: true },
     require.resolve('./IngressDeposit.worker'),
@@ -127,9 +101,6 @@ test('ingressDeposit concurrent performance', async () => {
     require.resolve('./IngressOrder.worker'),
   );
 
-  // mark ingress exchange complete
-  await generateIngressTraderExchangeLoad(ingressExchangeWorkers, 0, 1000);
-
   // add deposits
   await generateIngressDepositLoad(ingressDepositWorkers, 0, 1000);
 
@@ -139,7 +110,6 @@ test('ingressDeposit concurrent performance', async () => {
   console.time('ingressOrder');
   await generateIngressOrderLoad(ingressOrderWorkers, 5, 1000);
   console.timeEnd('ingressOrder');
-  workerFarm.end(ingressExchangeWorkers);
   workerFarm.end(ingressDepositWorkers);
   workerFarm.end(ingressOrderWorkers);
   await sleep(200);
