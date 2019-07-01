@@ -64,7 +64,7 @@ if (process.env.MOCK_EXCHANGE_SERVICE === 'true') {
   ExchangeService = require('./core/services/ExchangeService');
 }
 const TraderScoreMutex = require('./core/services/TraderScoreMutex');
-
+const ExchangeAPIFactory = require('./adapters/exchangeAPIs/ExchangeAPIFactory');
 const PortfolioServiceFactory = require('./adapters/knex/factories/PortfolioServiceFactory');
 const OrderServiceFactory = require('./adapters/knex/factories/OrderServiceFactory');
 const TransferServiceFactory = require('./adapters/knex/factories/TransferServiceFactory');
@@ -72,8 +72,8 @@ const ScoreServiceFactory = require('./adapters/knex/factories/ScoreServiceFacto
 const EntryServiceFactory = require('./adapters/knex/factories/EntryServiceFactory');
 const TradeServiceFactory = require('./adapters/knex/factories/TradeServiceFactory');
 
-// TODO: inject exchangeAPIFactory, traderExchangeKeysRepo
-const exchangeService = new ExchangeService({});
+const exchangeAPIFactory = new ExchangeAPIFactory({});
+const exchangeService = new ExchangeService({ exchangeAPIFactory });
 
 const traderScoreMutex = new TraderScoreMutex({ mutex });
 
