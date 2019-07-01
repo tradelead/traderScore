@@ -57,88 +57,30 @@ beforeEach(async () => {
   const mockExchangeService = new ExchangeService({});
 
   mockExchangeService.getFilledOrders.reset();
-
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
     .resolves([defaultOrder]);
-
-  mockExchangeService.getFilledOrders
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultOrder, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-      quantity: 6,
-    })]);
-
   mockExchangeService.getFilledOrders.resolves([]);
 
   mockExchangeService.getSuccessfulDeposits.reset();
-
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
     .resolves([defaultDeposit]);
-
-  mockExchangeService.getSuccessfulDeposits
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultDeposit, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-    })]);
-
   mockExchangeService.getSuccessfulDeposits.resolves([]);
 
   mockExchangeService.getSuccessfulWithdrawals.reset();
-
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onFirstCall()
     .resolves([defaultWithdrawal]);
-
-  mockExchangeService.getSuccessfulWithdrawals
-    .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
-    .resolves([Object.assign({}, defaultWithdrawal, {
-      exchangeID: 'bittrex',
-      traderID: 'trader2',
-      quantity: 6,
-    })]);
-
   mockExchangeService.getSuccessfulWithdrawals.resolves([]);
 
   mockExchangeService.getPrice.reset();
-
-  mockExchangeService.getPrice
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
-    .resolves(100);
-
-  mockExchangeService.getPrice
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultOrder.time }))
-    .resolves(150);
-
-  mockExchangeService.getPrice
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultWithdrawal.time }))
-    .resolves(225);
-
   mockExchangeService.getPrice.resolves(1);
 
   mockExchangeService.getBTCValue.reset();
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultWithdrawal.time }))
-    .resolves(0.45);
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ qty: 6 }))
-    .resolves(0.15);
-
-  mockExchangeService.getBTCValue
-    .withArgs(sinon.match({ qty: 12.345 }))
-    .resolves(0.3);
-
   mockExchangeService.getBTCValue.resolves(1);
 
   mockExchangeService.isRootAsset.reset();
@@ -153,20 +95,43 @@ beforeEach(async () => {
   });
 });
 
-test('GetTraderRanks returns obj with proper ranks', async () => {
+test('can ingress then remove then re-ingress', async () => {
   await app.useCases.ingressTraderExchange({
     traderID: 'trader1',
     exchangeID: 'binance',
   });
 
-  await app.useCases.ingressTraderExchange({
-    traderID: 'trader2',
-    exchangeID: 'bittrex',
+  await app.useCases.removeTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
   });
 
-  const ranks = await app.useCases.getTradersRank({ traderIDs: ['trader1', 'trader2'] });
-  expect(ranks).toEqual({
-    trader1: 1,
-    trader2: 2,
+  const orderIngressProm = app.useCases.ingressFilledOrder(defaultOrder);
+  await expect(orderIngressProm).rejects.toThrow('Exchange ingress not complete');
+
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
   });
+});
+
+test('cannot ingress items after removed', async () => {
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
+  });
+
+  await app.useCases.removeTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
+  });
+
+  const depositIngressProm = app.useCases.ingressDeposit(defaultDeposit);
+  await expect(depositIngressProm).rejects.toThrow('Exchange ingress not complete');
+
+  const orderIngressProm = app.useCases.ingressFilledOrder(defaultOrder);
+  await expect(orderIngressProm).rejects.toThrow('Exchange ingress not complete');
+
+  const withdrawalIngressProm = app.useCases.ingressWithdrawal(defaultWithdrawal);
+  await expect(withdrawalIngressProm).rejects.toThrow('Exchange ingress not complete');
 });

@@ -372,6 +372,180 @@ Resources:
       TopicArn: !ImportValue
         Fn::Sub: ${CoreStack}-NewSuccessfulWithdrawalTopicArn
     Type: AWS::SNS::Subscription
+  NewTraderExchangeAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-NewTraderExchangeTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'NewTraderExchangeQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'NewTraderExchangeQueue'
+    Type: AWS::SQS::QueuePolicy
+  NewTraderExchangeConsumer:
+    Properties:
+      CodeUri: ../.
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${CoreStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${CoreStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
+          NODE_ENV: !Ref 'NodeEnv'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${CoreStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${CoreStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'NewTraderExchangeQueue.Arn'
+          Type: SQS
+      Handler: src/lambda/NewTraderExchangeConsumer.handler
+      Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'NewTraderExchangeQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      Timeout: 300
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-SubnetID
+    Type: AWS::Serverless::Function
+  NewTraderExchangeQueue:
+    Properties:
+      VisibilityTimeout: 600
+    Type: AWS::SQS::Queue
+  NewTraderExchangeSubscription:
+    Properties:
+      Endpoint: !GetAtt 'NewTraderExchangeQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${CoreStack}-NewTraderExchangeTopicArn
+    Type: AWS::SNS::Subscription
+  RemoveTraderExchangeAllowSNS2SQSPolicy:
+    Properties:
+      PolicyDocument:
+        Id: PublicationPolicy
+        Statement:
+          - Action:
+              - sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !ImportValue
+                  Fn::Sub: ${CoreStack}-RemoveTraderExchangeTopicArn
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+            Sid: Allow-SNS-SendMessage
+        Version: '2008-10-17'
+      Queues:
+        - !Ref 'RemoveTraderExchangeQueue'
+    Type: AWS::SQS::QueuePolicy
+  RemoveTraderExchangeConsumer:
+    Properties:
+      CodeUri: ../.
+      Environment:
+        Variables:
+          DATABASE_HOST: !ImportValue
+            Fn::Sub: ${CoreStack}-MySQL-Address
+          DATABASE_NAME: !Ref 'MySQLDbName'
+          DATABASE_PASSWORD: !Ref 'MySQLPass'
+          DATABASE_POOL_MAX: 2
+          DATABASE_POOL_MIN: 1
+          DATABASE_PORT: !ImportValue
+            Fn::Sub: ${CoreStack}-MySQL-Port
+          DATABASE_USER: !Ref 'MySQLUser'
+          MOCK_EXCHANGE_SERVICE: !Ref 'MockExchangeService'
+          NODE_ENV: !Ref 'NodeEnv'
+          REDIS_URL: !Join
+            - ''
+            - - redis://
+              - !ImportValue
+                Fn::Sub: ${CoreStack}-Redis-Address
+              - ':'
+              - !ImportValue
+                Fn::Sub: ${CoreStack}-Redis-Port
+          SCORE_PERIOD_CONFIG: '[{"id":"day","duration":86400000},{"id":"week","duration":604800000}]'
+          SCORE_UPDATES_QUEUE_URL: !Ref 'ScoreUpdatesQueue'
+      Events:
+        SQSTrigger:
+          Properties:
+            BatchSize: 10
+            Queue: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+          Type: SQS
+      Handler: src/lambda/RemoveTraderExchangeConsumer.handler
+      Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - Statement:
+            - Action:
+                - sqs:ReceiveMessage
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+              Effect: Allow
+              Resource: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+          Version: '2012-10-17'
+      Runtime: nodejs8.10
+      Timeout: 10
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-RDS-Access-SG-ID
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-Redis-Access-SG-ID
+        SubnetIds:
+          - !ImportValue
+            Fn::Sub: ${CoreStack}-SubnetID
+    Type: AWS::Serverless::Function
+  RemoveTraderExchangeQueue:
+    Properties:
+      VisibilityTimeout: 20
+    Type: AWS::SQS::Queue
+  RemoveTraderExchangeSubscription:
+    Properties:
+      Endpoint: !GetAtt 'RemoveTraderExchangeQueue.Arn'
+      Protocol: sqs
+      RawMessageDelivery: 'true'
+      TopicArn: !ImportValue
+        Fn::Sub: ${CoreStack}-RemoveTraderExchangeTopicArn
+    Type: AWS::SNS::Subscription
   ScoreUpdatesConsumer:
     Properties:
       CodeUri: ../.

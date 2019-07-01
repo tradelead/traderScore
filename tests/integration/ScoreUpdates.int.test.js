@@ -63,6 +63,24 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
+  mockExchangeService.getFilledOrders
+    .onFirstCall()
+    .resolves([defaultOrder]);
+
+  mockExchangeService.getFilledOrders.resolves([]);
+
+  mockExchangeService.getSuccessfulDeposits
+    .onFirstCall()
+    .resolves([defaultDeposit]);
+
+  mockExchangeService.getSuccessfulDeposits.resolves([]);
+
+  mockExchangeService.getSuccessfulWithdrawals
+    .onFirstCall()
+    .resolves([defaultWithdrawal]);
+
+  mockExchangeService.getSuccessfulWithdrawals.resolves([]);
+
   mockExchangeService.getPrice
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
     .resolves(100);
@@ -107,13 +125,14 @@ beforeEach(async () => {
     }
     return preferredQuoteAsset;
   });
-
-  await app.useCases.ingressDeposit(defaultDeposit);
-  await app.useCases.ingressFilledOrder(defaultOrder);
-  await app.useCases.ingressWithdrawal(defaultWithdrawal);
 });
 
 test('due updates are moved to queue', async () => {
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
+  });
+
   const { now } = Date;
   Date.now = jest.fn().mockImplementation(() => sampleTime + (24 * 60 * 60 * 1000));
 

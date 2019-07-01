@@ -144,6 +144,8 @@ def createSQSConsumer(name, timeout=5, snsTopic=None):
 createSQSConsumer('NewFilledOrder', 10, ImportValue(Sub('${CoreStack}-NewFilledOrderTopicArn')))
 createSQSConsumer('NewSuccessfulDeposit', 10, ImportValue(Sub('${CoreStack}-NewSuccessfulDepositTopicArn')))
 createSQSConsumer('NewSuccessfulWithdrawal', 10, ImportValue(Sub('${CoreStack}-NewSuccessfulWithdrawalTopicArn')))
+createSQSConsumer('NewTraderExchange', 300, ImportValue(Sub('${CoreStack}-NewTraderExchangeTopicArn')))
+createSQSConsumer('RemoveTraderExchange', 10, ImportValue(Sub('${CoreStack}-RemoveTraderExchangeTopicArn')))
 
 scoreUpdatesRes = createSQSConsumer('ScoreUpdates', 30)
 

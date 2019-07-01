@@ -57,6 +57,30 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
+  mockExchangeService.getFilledOrders.reset();
+  mockExchangeService.getFilledOrders
+    .withArgs(sinon.match({ exchangeID: 'binance' }))
+    .onFirstCall()
+    .resolves([defaultOrder]);
+
+  mockExchangeService.getFilledOrders.resolves([]);
+
+  mockExchangeService.getSuccessfulDeposits.reset();
+  mockExchangeService.getSuccessfulDeposits
+    .withArgs(sinon.match({ exchangeID: 'binance' }))
+    .onFirstCall()
+    .resolves([defaultDeposit]);
+
+  mockExchangeService.getSuccessfulDeposits.resolves([]);
+
+  mockExchangeService.getSuccessfulWithdrawals.reset();
+  mockExchangeService.getSuccessfulWithdrawals
+    .withArgs(sinon.match({ exchangeID: 'binance' }))
+    .onFirstCall()
+    .resolves([defaultWithdrawal]);
+
+  mockExchangeService.getSuccessfulWithdrawals.resolves([]);
+
   mockExchangeService.getPrice.reset();
   mockExchangeService.getPrice
     .withArgs(sinon.match({ asset: 'ETH', quoteAsset: 'USDT', time: defaultDeposit.time }))
@@ -105,13 +129,14 @@ beforeEach(async () => {
     }
     return preferredQuoteAsset;
   });
-
-  await app.useCases.ingressDeposit(defaultDeposit);
-  await app.useCases.ingressFilledOrder(defaultOrder);
-  await app.useCases.ingressWithdrawal(defaultWithdrawal);
 });
 
 it('returns score, meaning it\'s configured properly', async () => {
+  await app.useCases.ingressTraderExchange({
+    traderID: 'trader1',
+    exchangeID: 'binance',
+  });
+
   const score = await app.useCases.calculateTraderScore({ traderID: 'trader1', period: 'day' });
 
   expect(score).toBeGreaterThan(0);

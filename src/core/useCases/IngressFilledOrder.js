@@ -16,6 +16,7 @@ const schema = Joi.object().keys({
     quantity: Joi.number().label('Fee Quantity'),
     asset: Joi.string().max(8).uppercase().label('Fee Asset'),
   }),
+  past: Joi.boolean().label('Past'),
 }).unknown();
 
 module.exports = class IngressFilledOrder {
@@ -36,6 +37,16 @@ module.exports = class IngressFilledOrder {
 
     const unitOfWork = await this.unitOfWorkFactory.create();
     try {
+      if (!value.past) {
+        const ingressCompleted = await unitOfWork.exchangeIngressRepo.isComplete({
+          traderID: value.traderID,
+          exchangeID: value.exchangeID,
+        });
+        if (!ingressCompleted) {
+          throw new Error('Exchange ingress not complete');
+        }
+      }
+
       const order = new Order(value);
 
       const saveOrder = unitOfWork.orderService.add(order);

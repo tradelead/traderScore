@@ -21,6 +21,9 @@ beforeEach(() => {
     transferService: {
       addDeposit: sinon.stub(),
     },
+    exchangeIngressRepo: {
+      isComplete: sinon.stub(),
+    },
     complete: sinon.stub(),
     rollback: sinon.stub(),
   };
@@ -31,7 +34,22 @@ beforeEach(() => {
 
   deps = { unitOfWorkFactory };
 
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(true);
   unitOfWork.transferService.addDeposit.resolves('deposit123');
+});
+
+it('throws error if ingress not complete when past false', async () => {
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+  const useCase = new IngressDeposit(deps);
+  defaultReq.past = false;
+  return expect(useCase.execute(defaultReq)).rejects.toThrow('Exchange ingress not complete');
+});
+
+it('does not throws error if ingress not complete when past true', async () => {
+  unitOfWork.exchangeIngressRepo.isComplete.resolves(false);
+  const useCase = new IngressDeposit(deps);
+  defaultReq.past = true;
+  return expect(useCase.execute(defaultReq)).resolves.toBeUndefined();
 });
 
 it('saves deposit', async () => {
