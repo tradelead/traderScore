@@ -9,6 +9,7 @@ const exchangeAPI = {
   isRootAsset: sinon.stub(),
   getPrice: sinon.stub(),
   getMarkets: sinon.stub(),
+  getBalances: sinon.stub(),
 };
 
 let service;
@@ -453,5 +454,56 @@ describe('findMarketQuoteAsset', () => {
   it('doesn\'t throw error if preferredQuoteAsset not specified', async () => {
     delete req.preferredQuoteAsset;
     expect(service.findMarketQuoteAsset(req)).resolves.toBeTruthy();
+  });
+});
+
+describe('getBalances', () => {
+  const req = {
+    exchangeID: 'exchange123',
+    traderID: 'trader123',
+  };
+
+  it('returns results from exchangeAPI', async () => {
+    const obj = { test: 'test' };
+    exchangeAPI.getBalances.resolves(obj);
+    const res = await service.getBalances(req);
+    expect(res).toBe(obj);
+  });
+
+  it('calls exchangeAPIFactory.get with exchangeID', async () => {
+    await service.getBalances(req);
+    sinon.assert.calledWith(deps.exchangeAPIFactory.get, req.exchangeID);
+  });
+
+  it('calls traderExchangeKeysRepo.get with exchangeID', async () => {
+    await service.getBalances(req);
+
+    const { exchangeID } = req;
+    sinon.assert.calledWithMatch(deps.traderExchangeKeysRepo.get, { exchangeID });
+  });
+
+  it('calls traderExchangeKeysRepo.get with traderID', async () => {
+    await service.getBalances(req);
+
+    const { traderID } = req;
+    sinon.assert.calledWithMatch(deps.traderExchangeKeysRepo.get, { traderID });
+  });
+
+  it('calls exchangeAPI with keys from key repo', async () => {
+    const keys = { key: 'abc', secret: '123' };
+    deps.traderExchangeKeysRepo.get.resolves(keys);
+
+    await service.getBalances(req);
+
+    sinon.assert.calledWithMatch(exchangeAPI.getBalances, { keys });
+  });
+
+  it('calls exchangeAPI with params', async () => {
+    await service.getBalances(req);
+
+    const { traderID } = req;
+
+    const expectedArgs = { traderID };
+    sinon.assert.calledWithMatch(exchangeAPI.getBalances, expectedArgs);
   });
 });

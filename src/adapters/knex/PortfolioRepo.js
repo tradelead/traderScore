@@ -181,4 +181,13 @@ module.exports = class PortfolioRepo {
 
     await Promise.all(updateProms);
   }
+
+  async traderExchangeExists({ traderID, exchangeID }) {
+    const items = await this.knexConn(this.assetsTableName)
+      .select('ID')
+      .where({ traderID, exchangeID })
+      .limit(1);
+
+    return items && items.length > 0;
+  }
 };

@@ -354,8 +354,7 @@ module.exports = class BinanceAPI {
 
     return balances.map(balance => ({
       asset: balance.asset,
-      quantity: (new BigNumber(balance.free)).plus(balance.locked)
-        .toNumber(),
+      quantity: (new BigNumber(balance.free)).plus(balance.locked).toNumber(),
     }));
   }
 

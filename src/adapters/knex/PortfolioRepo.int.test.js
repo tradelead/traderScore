@@ -319,3 +319,43 @@ describe('snapshot', () => {
     expect(snapshot).toEqual(expectedSnapshot);
   });
 });
+
+describe('traderExchangeExists', () => {
+  it('returns true when a exchange asset exists', async () => {
+    await knex(tableName).truncate();
+    await knex(assetTableName).truncate();
+
+    const req = {
+      traderID: 'trader1',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quantity: 12.345,
+      time: 1550000000000,
+    };
+
+    await portfolioRepo.incr(req);
+
+    await expect(portfolioRepo.traderExchangeExists({
+      traderID: req.traderID,
+      exchangeID: req.exchangeID,
+    })).resolves.toEqual(true);
+  });
+
+  it('returns false when no exchange assets', async () => {
+    await knex(tableName).truncate();
+    await knex(assetTableName).truncate();
+
+    const req = {
+      traderID: 'trader1',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quantity: 12.345,
+      time: 1550000000000,
+    };
+
+    await expect(portfolioRepo.traderExchangeExists({
+      traderID: req.traderID,
+      exchangeID: req.exchangeID,
+    })).resolves.toEqual(false);
+  });
+});

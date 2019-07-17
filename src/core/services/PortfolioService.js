@@ -4,6 +4,7 @@ module.exports = class PortfolioService {
   constructor({ portfolioRepo, exchangeService }) {
     this.portfolioRepo = portfolioRepo;
     this.exchangeService = exchangeService;
+    this.traderExchangeExists = this.portfolioRepo.traderExchangeExists.bind(this.portfolioRepo);
   }
 
   async BTCValue({ traderID, time }) {

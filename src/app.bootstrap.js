@@ -198,6 +198,15 @@ const ingressExchangeUOWFactory = new UnitOfWorkFactory({
     exchangeIngressRepo: exchangeIngressRepoFactory,
   },
 });
+
+const portfolioUnitOfWorkFactory = new UnitOfWorkFactory({
+  knex,
+  events,
+  serviceFactories: {
+    portfolioService: portfolioServiceFactory,
+  },
+});
+
 const ingressTraderExchange = new IngressTraderExchange({
   ingressDeposit,
   ingressFilledOrder,
@@ -207,6 +216,7 @@ const ingressTraderExchange = new IngressTraderExchange({
   transferService,
   exchangeActivityLimitPerFetch: exchangeActivityFetchLimit,
   unitOfWorkFactory: ingressExchangeUOWFactory,
+  portfolioUnitOfWorkFactory,
 });
 
 const removeTraderExchange = new RemoveTraderExchange({ exchangeIngressRepo });

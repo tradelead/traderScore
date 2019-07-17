@@ -1,5 +1,20 @@
 // const debug = require('debug')('traderScore:IngressTraderExchange');
 const Joi = require('joi');
+const BigNumber = require('bignumber.js');
+
+async function multiFetchLoop(f) {
+  let startTime = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const items = await f(startTime);
+    hasMore = items && items.length > 0;
+
+    if (hasMore) {
+      startTime = items[items.length - 1].time;
+    }
+  }
+}
 
 const requestSchema = Joi.object().keys({
   traderID: Joi.string().required().label('Trader ID'),
@@ -16,6 +31,7 @@ module.exports = class IngressTraderExchange {
     transferService,
     exchangeActivityLimitPerFetch,
     unitOfWorkFactory,
+    portfolioUnitOfWorkFactory,
   }) {
     this.ingressDeposit = ingressDeposit;
     this.ingressFilledOrder = ingressFilledOrder;
@@ -25,6 +41,7 @@ module.exports = class IngressTraderExchange {
     this.transferService = transferService;
     this.exchangeActivityLimitPerFetch = exchangeActivityLimitPerFetch;
     this.unitOfWorkFactory = unitOfWorkFactory;
+    this.portfolioUnitOfWorkFactory = portfolioUnitOfWorkFactory;
   }
 
   async execute(req) {
@@ -39,6 +56,8 @@ module.exports = class IngressTraderExchange {
     }
 
     const { traderID, exchangeID } = value;
+
+    await this.updatePortfolio({ traderID, exchangeID });
 
     const lastOrders = await this.orderService.getFilledOrders({
       traderID,
@@ -109,6 +128,160 @@ module.exports = class IngressTraderExchange {
     return true;
   }
 
+  // set portfolio to exchange balance subtracted by available orders, deposits, and withdrawals.
+  // This is necessary to ensure internal portfolio matches exchange portfolio because
+  // exchange APIs may not support returning all historic activity.
+  async updatePortfolio({ traderID, exchangeID }) {
+    const unitOfWork = await this.portfolioUnitOfWorkFactory.create();
+
+    try {
+      const alreadyUpdated = await unitOfWork.portfolioService.traderExchangeExists({
+        traderID,
+        exchangeID,
+      });
+
+      if (alreadyUpdated) {
+        await unitOfWork.complete();
+        return;
+      }
+
+      const balancesArr = await this.exchangeService.getBalances({ traderID, exchangeID });
+      const balances = (balancesArr && balancesArr.length > 0 && balancesArr.reduce((acc, item) => {
+        acc[item.asset] = item.quantity;
+        return acc;
+      }, {})) || {};
+
+      let timeOfFirstActivity = null;
+
+      const subtractingOrders = multiFetchLoop(async (startTime) => {
+        const limit = this.exchangeActivityLimitPerFetch;
+
+        const items = await this.exchangeService.getFilledOrders({
+          traderID,
+          exchangeID,
+          limit,
+          startTime,
+        });
+
+        items.forEach((item) => {
+          if (item.side === 'buy') {
+            // decr asset balance
+            balances[item.asset] = (new BigNumber(balances[item.asset]))
+              .minus(item.quantity).toNumber();
+
+            // incr quote asset balance
+            const quoteQty = (new BigNumber(item.quantity)).times(item.price);
+            balances[item.quoteAsset] = (new BigNumber(balances[item.quoteAsset]))
+              .plus(quoteQty).toNumber();
+
+            // incr fee asset balance
+            balances[item.fee.asset] = (new BigNumber(balances[item.asset]))
+              .plus(item.fee.quantity).toNumber();
+          } else {
+            // incr asset balance
+            balances[item.asset] = (new BigNumber(balances[item.asset]))
+              .plus(item.quantity).toNumber();
+
+            // decr quote asset balance
+            const quoteQty = (new BigNumber(item.quantity)).times(item.price);
+            balances[item.quoteAsset] = (new BigNumber(balances[item.quoteAsset]))
+              .minus(quoteQty).toNumber();
+
+            // incr fee asset balance
+            balances[item.fee.asset] = (new BigNumber(balances[item.asset]))
+              .plus(item.fee.quantity).toNumber();
+          }
+        });
+
+        const shouldSetTime = (
+          !timeOfFirstActivity
+          || (items[0] && items[0].time < timeOfFirstActivity)
+        );
+        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+
+        return items;
+      });
+
+      const subtractingDeposits = multiFetchLoop(async (startTime) => {
+        const limit = this.exchangeActivityLimitPerFetch;
+
+        const items = await this.exchangeService.getSuccessfulDeposits({
+          traderID,
+          exchangeID,
+          limit,
+          startTime,
+        });
+
+        items.forEach((item) => {
+          // decr asset balance
+          balances[item.asset] = (new BigNumber(balances[item.asset]))
+            .minus(item.quantity).toNumber();
+        });
+
+        const shouldSetTime = (
+          !timeOfFirstActivity
+          || (items[0] && items[0].time < timeOfFirstActivity)
+        );
+        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+
+        return items;
+      });
+
+      const subtractingWithdrawals = multiFetchLoop(async (startTime) => {
+        const limit = this.exchangeActivityLimitPerFetch;
+
+        const items = await this.exchangeService.getSuccessfulWithdrawals({
+          traderID,
+          exchangeID,
+          limit,
+          startTime,
+        });
+
+        items.forEach((item) => {
+          // incr asset balance
+          balances[item.asset] = (new BigNumber(balances[item.asset]))
+            .plus(item.quantity).toNumber();
+        });
+
+        const shouldSetTime = (
+          !timeOfFirstActivity
+          || (items[0] && items[0].time < timeOfFirstActivity)
+        );
+        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+
+        return items;
+      });
+
+      await subtractingOrders;
+      await subtractingDeposits;
+      await subtractingWithdrawals;
+
+      await Promise.all(Object.keys(balances).map(async (asset) => {
+        const quantity = balances[asset];
+
+        const req = {
+          traderID,
+          exchangeID,
+          asset,
+          quantity,
+          time: timeOfFirstActivity || 0,
+        };
+
+        if (quantity > 0) {
+          await unitOfWork.portfolioService.incr(req);
+        } else if (quantity < 0) {
+          req.quantity = -quantity;
+          console.error('Update Portfolio Error: decr', req);
+        }
+      }));
+
+      await unitOfWork.complete();
+    } catch (e) {
+      await unitOfWork.rollback();
+      throw e;
+    }
+  }
+
   async ingressActivity({
     activity,
     ordersLeft,
@@ -132,15 +305,23 @@ module.exports = class IngressTraderExchange {
     const item = activity.pop();
 
     if (item) {
-      if (item.type === 'order') {
-        await this.ingressFilledOrder.execute(item);
-        ordersLeftNew -= 1;
-      } else if (item.type === 'deposit') {
-        await this.ingressDeposit.execute(item);
-        depositsLeftNew -= 1;
-      } else if (item.type === 'withdrawal') {
-        await this.ingressWithdrawal.execute(item);
-        withdrawalsLeftNew -= 1;
+      try {
+        if (item.type === 'order') {
+          ordersLeftNew -= 1;
+          await this.ingressFilledOrder.execute(item);
+        } else if (item.type === 'deposit') {
+          depositsLeftNew -= 1;
+          await this.ingressDeposit.execute(item);
+        } else if (item.type === 'withdrawal') {
+          withdrawalsLeftNew -= 1;
+          await this.ingressWithdrawal.execute(item);
+        }
+      } catch (e) {
+        if (e.message !== 'Insufficient entries') {
+          throw e;
+        } else {
+          console.error('Error Ignored:', e);
+        }
       }
     }
 

@@ -262,4 +262,28 @@ module.exports = class ExchangeService {
     const firstKey = Object.keys(marketsObj)[0];
     return marketsObj[firstKey].quoteAsset;
   }
+
+  async getBalances(req) {
+    const { error, value } = Joi.object().keys({
+      exchangeID: Joi.string().required().label('Exchange ID'),
+      traderID: Joi.string().required().label('Trader ID'),
+    }).validate(req);
+
+    if (error != null) {
+      const humanErr = error.details.map(detail => detail.message).join(', ');
+      const err = new Error(humanErr);
+      err.name = 'BadRequest';
+      throw err;
+    }
+
+    const {
+      exchangeID,
+      traderID,
+    } = value;
+
+    const exchangeAPI = this.exchangeAPIFactory.get(exchangeID);
+    const keys = await this.traderExchangeKeysRepo.get({ exchangeID, traderID });
+
+    return exchangeAPI.getBalances({ traderID, keys });
+  }
 };

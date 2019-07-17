@@ -9,6 +9,7 @@ const mockExchangeService = {
   getSuccessfulWithdrawals: sinon.stub(),
   getPrice: sinon.stub(),
   getBTCValue: sinon.stub(),
+  getBalances: sinon.stub(),
   isRootAsset: async ({ symbol }) => symbol === 'USDT',
   findMarketQuoteAsset: async ({ asset, preferredQuoteAsset }) => {
     if (asset === 'USDT') {

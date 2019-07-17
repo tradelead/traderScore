@@ -26,6 +26,10 @@ const defaultOrder = new Order({
   time: Date.now(),
   quantity: 12.345,
   price: 123.4567,
+  fee: {
+    asset: 'ETH',
+    quantity: 0.03,
+  },
 });
 
 const defaultDeposit = new Deposit({
@@ -49,6 +53,8 @@ const defaultWithdrawal = new Withdrawal({
 let deps = {};
 let unitOfWork;
 let unitOfWorkFactory;
+let portfolioUnitOfWork;
+let portfolioUnitOfWorkFactory;
 
 beforeEach(() => {
   unitOfWork = {
@@ -70,6 +76,20 @@ beforeEach(() => {
     create: async () => unitOfWork,
   };
 
+  portfolioUnitOfWork = {
+    portfolioService: {
+      incr: sinon.stub(),
+      decr: sinon.stub(),
+      traderExchangeExists: sinon.stub(),
+    },
+    complete: sinon.stub(),
+    rollback: sinon.stub(),
+  };
+
+  portfolioUnitOfWorkFactory = {
+    create: async () => portfolioUnitOfWork,
+  };
+
   deps = {
     exchangeActivityLimitPerFetch: 3,
     ingressDeposit: { execute: sinon.stub() },
@@ -79,6 +99,7 @@ beforeEach(() => {
       getFilledOrders: sinon.stub(),
       getSuccessfulDeposits: sinon.stub(),
       getSuccessfulWithdrawals: sinon.stub(),
+      getBalances: sinon.stub(),
     },
     orderService: {
       getFilledOrders: sinon.stub(),
@@ -91,6 +112,7 @@ beforeEach(() => {
       add: sinon.stub(),
     },
     unitOfWorkFactory,
+    portfolioUnitOfWorkFactory,
   };
 
   deps.ingressDeposit.execute.resolves(null);
@@ -101,14 +123,23 @@ beforeEach(() => {
   deps.exchangeService.getFilledOrders.onCall(0).resolves([
     defaultOrder,
   ]);
+  deps.exchangeService.getFilledOrders.onCall(2).resolves([
+    defaultOrder,
+  ]);
 
   deps.exchangeService.getSuccessfulDeposits.resolves([]);
   deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([
     defaultDeposit,
   ]);
+  deps.exchangeService.getSuccessfulDeposits.onCall(2).resolves([
+    defaultDeposit,
+  ]);
 
   deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
   deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
+    defaultWithdrawal,
+  ]);
+  deps.exchangeService.getSuccessfulWithdrawals.onCall(2).resolves([
     defaultWithdrawal,
   ]);
 
@@ -180,7 +211,7 @@ describe('exchangeService.getFilledOrders', () => {
     sinon.assert.calledWithMatch(secondCall, { limit: deps.exchangeActivityLimitPerFetch });
   });
 
-  test('first call has startTime of recent order', async () => {
+  test('calls startTime with time of recent order', async () => {
     const order = uniqueObjectWithTimeAndSourceIDEqual(123, defaultOrder);
     deps.orderService.getFilledOrders
       .withArgs({
@@ -194,9 +225,8 @@ describe('exchangeService.getFilledOrders', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getFilledOrders.getCall(0);
     const expectedArgs = { startTime: 123 };
-    sinon.assert.calledWithMatch(firstCall, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getFilledOrders, expectedArgs);
   });
 
   test('first call has zero startTime if no recent order', async () => {
@@ -288,7 +318,7 @@ describe('exchangeService.getSuccessfulDeposits', () => {
     sinon.assert.calledWithMatch(secondCall, { limit: deps.exchangeActivityLimitPerFetch });
   });
 
-  test('first call has startTime of recent order', async () => {
+  test('calls startTime with time of recent order', async () => {
     const order = uniqueObjectWithTimeAndSourceIDEqual(123, defaultOrder);
     deps.transferService.findDeposits
       .withArgs({
@@ -302,9 +332,8 @@ describe('exchangeService.getSuccessfulDeposits', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getSuccessfulDeposits.getCall(0);
     const expectedArgs = { startTime: 123 };
-    sinon.assert.calledWithMatch(firstCall, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulDeposits, expectedArgs);
   });
 
   test('first call has zero startTime if no recent order', async () => {
@@ -411,7 +440,7 @@ describe('exchangeService.getSuccessfulWithdrawals', () => {
     sinon.assert.calledWithMatch(secondCall, { limit: deps.exchangeActivityLimitPerFetch });
   });
 
-  test('first call has startTime of recent order', async () => {
+  test('calls startTime with time of recent order', async () => {
     const withdrawal = uniqueObjectWithTimeAndSourceIDEqual(123, defaultWithdrawal);
     deps.transferService.findWithdrawals
       .withArgs({
@@ -425,9 +454,8 @@ describe('exchangeService.getSuccessfulWithdrawals', () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    const firstCall = deps.exchangeService.getSuccessfulWithdrawals.getCall(0);
     const expectedArgs = { startTime: 123 };
-    sinon.assert.calledWithMatch(firstCall, expectedArgs);
+    sinon.assert.calledWithMatch(deps.exchangeService.getSuccessfulWithdrawals, expectedArgs);
   });
 
   test('first call has zero startTime if no recent order', async () => {
@@ -455,53 +483,65 @@ describe('exchangeService.getSuccessfulWithdrawals', () => {
   });
 });
 
-describe('ingress activity', () => {
-  test('ordered when only 1 fetch needed per activity type', async () => {
-    // track activity
-    const activity = [];
-    deps.ingressFilledOrder.execute.callsFake(async obj => activity.push(obj.sourceID));
-    deps.ingressDeposit.execute.callsFake(async obj => activity.push(obj.sourceID));
-    deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
-
-    // exchange data
-    const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
-    const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
-    const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
-    deps.exchangeService.getFilledOrders.resolves([]);
-    deps.exchangeService.getFilledOrders.onCall(0).resolves([order1, order2, order3]);
-
-    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
-    const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
-    const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
-    deps.exchangeService.getSuccessfulDeposits.resolves([]);
-    deps.exchangeService.getSuccessfulDeposits.onCall(0).resolves([deposit1, deposit2, deposit3]);
-
-    const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
-    const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(8, defaultWithdrawal);
-    const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(9, defaultWithdrawal);
-    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
-    deps.exchangeService.getSuccessfulWithdrawals.onCall(0).resolves([
-      withdrawal1,
-      withdrawal2,
-      withdrawal3,
-    ]);
-
-    // run
+describe('incr portfolio: exchange balances subtracted by available deposits, orders, & withdrawals', () => {
+  it('calls getBalances with traderID and exchangeID', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
 
-    // assert
-    expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    const { traderID, exchangeID } = defaultReq;
+    sinon.assert.calledWith(deps.exchangeService.getBalances, { traderID, exchangeID });
   });
 
-  test('ordered when multi fetch needed per activity type with random ordering', async () => {
-    // track activity
-    const activity = [];
-    deps.ingressFilledOrder.execute.callsFake(async obj => activity.push(obj.sourceID));
-    deps.ingressDeposit.execute.callsFake(async obj => activity.push(obj.sourceID));
-    deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
+  it('completes unit of work if already completed', async () => {
+    const { traderID, exchangeID } = defaultReq;
+    portfolioUnitOfWork.portfolioService.traderExchangeExists
+      .withArgs({ traderID, exchangeID })
+      .resolves(true);
 
-    // exchange data
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.called(portfolioUnitOfWork.complete);
+  });
+
+  it('completes unit of work when successful', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.called(portfolioUnitOfWork.complete);
+  });
+
+  it('rolls back unit of work when throws error and re-throws error', async () => {
+    deps.exchangeService.getBalances.resolves([
+      { asset: 'BTC', quantity: 0.2 },
+      { asset: 'USD', quantity: 3900 },
+      { asset: 'ETH', quantity: 91 },
+    ]);
+
+    portfolioUnitOfWork.portfolioService.incr.reset();
+    const err = new Error('test');
+    portfolioUnitOfWork.portfolioService.incr.rejects(err);
+
+    const useCase = new IngressTraderExchange(deps);
+    let rejectedWith = null;
+    try {
+      await useCase.execute(defaultReq);
+    } catch (e) {
+      rejectedWith = e;
+    }
+
+    expect(rejectedWith).toBe(err);
+
+    sinon.assert.called(portfolioUnitOfWork.rollback);
+  });
+
+  it('increments correctly when deposits, orders, & withdrawals require multi fetch', async () => {
+    deps.exchangeService.getBalances.resolves([
+      { asset: 'BTC', quantity: 0.2 },
+      { asset: 'USD', quantity: 3900 },
+      { asset: 'ETH', quantity: 91 },
+    ]);
+
     const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
     const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
     const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
@@ -512,9 +552,6 @@ describe('ingress activity', () => {
     const order5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultOrder);
     const order6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultOrder);
     deps.exchangeService.getFilledOrders.onCall(1).resolves([order4, order5, order6]);
-
-    const order7 = uniqueObjectWithTimeAndSourceIDEqual(16, defaultOrder);
-    deps.exchangeService.getFilledOrders.onCall(2).resolves([order7]);
 
     const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
     const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
@@ -540,11 +577,125 @@ describe('ingress activity', () => {
     const withdrawal5 = uniqueObjectWithTimeAndSourceIDEqual(17, defaultWithdrawal);
     deps.exchangeService.getSuccessfulWithdrawals.onCall(1).resolves([withdrawal4, withdrawal5]);
 
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.calledWith(portfolioUnitOfWork.portfolioService.incr, {
+      traderID: 'trader123',
+      exchangeID: 'binance',
+      asset: 'BTC',
+      quantity: 0.2,
+      time: 1,
+    });
+
+    sinon.assert.calledWith(portfolioUnitOfWork.portfolioService.incr, {
+      traderID: 'trader123',
+      exchangeID: 'binance',
+      asset: 'USD',
+      quantity: 14568.5107305,
+      time: 1,
+    });
+
+    sinon.assert.calledWith(portfolioUnitOfWork.portfolioService.incr, {
+      traderID: 'trader123',
+      exchangeID: 'binance',
+      asset: 'ETH',
+      quantity: 4.795,
+      time: 1,
+    });
+  });
+});
+
+describe('ingress activity', () => {
+  test('ordered when only 1 fetch needed per activity type', async () => {
+    // track activity
+    const activity = [];
+    deps.ingressFilledOrder.execute.callsFake(async obj => activity.push(obj.sourceID));
+    deps.ingressDeposit.execute.callsFake(async obj => activity.push(obj.sourceID));
+    deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
+
+    // exchange data
+    const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
+    const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
+    const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
+    deps.exchangeService.getFilledOrders.resolves([]);
+    deps.exchangeService.getFilledOrders.onCall(2).resolves([order1, order2, order3]);
+
+    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
+    const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
+    const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(2).resolves([deposit1, deposit2, deposit3]);
+
+    const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
+    const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(8, defaultWithdrawal);
+    const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(9, defaultWithdrawal);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(2).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
+
+    // run
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    // assert
+    expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  test('ordered when multi fetch needed per activity type with random ordering', async () => {
+    // track activity
+    const activity = [];
+    deps.ingressFilledOrder.execute.callsFake(async obj => activity.push(obj.sourceID));
+    deps.ingressDeposit.execute.callsFake(async obj => activity.push(obj.sourceID));
+    deps.ingressWithdrawal.execute.callsFake(async obj => activity.push(obj.sourceID));
+
+    // exchange data
+    const order1 = uniqueObjectWithTimeAndSourceIDEqual(3, defaultOrder);
+    const order2 = uniqueObjectWithTimeAndSourceIDEqual(6, defaultOrder);
+    const order3 = uniqueObjectWithTimeAndSourceIDEqual(7, defaultOrder);
+    deps.exchangeService.getFilledOrders.resolves([]);
+    deps.exchangeService.getFilledOrders.onCall(2).resolves([order1, order2, order3]);
+
+    const order4 = uniqueObjectWithTimeAndSourceIDEqual(10, defaultOrder);
+    const order5 = uniqueObjectWithTimeAndSourceIDEqual(13, defaultOrder);
+    const order6 = uniqueObjectWithTimeAndSourceIDEqual(15, defaultOrder);
+    deps.exchangeService.getFilledOrders.onCall(3).resolves([order4, order5, order6]);
+
+    const order7 = uniqueObjectWithTimeAndSourceIDEqual(16, defaultOrder);
+    deps.exchangeService.getFilledOrders.onCall(4).resolves([order7]);
+
+    const deposit1 = uniqueObjectWithTimeAndSourceIDEqual(1, defaultDeposit);
+    const deposit2 = uniqueObjectWithTimeAndSourceIDEqual(4, defaultDeposit);
+    const deposit3 = uniqueObjectWithTimeAndSourceIDEqual(5, defaultDeposit);
+    deps.exchangeService.getSuccessfulDeposits.resolves([]);
+    deps.exchangeService.getSuccessfulDeposits.onCall(2).resolves([deposit1, deposit2, deposit3]);
+
+    const deposit4 = uniqueObjectWithTimeAndSourceIDEqual(12, defaultDeposit);
+    const deposit5 = uniqueObjectWithTimeAndSourceIDEqual(14, defaultDeposit);
+    deps.exchangeService.getSuccessfulDeposits.onCall(3).resolves([deposit4, deposit5]);
+
+    const withdrawal1 = uniqueObjectWithTimeAndSourceIDEqual(2, defaultWithdrawal);
+    const withdrawal2 = uniqueObjectWithTimeAndSourceIDEqual(8, defaultWithdrawal);
+    const withdrawal3 = uniqueObjectWithTimeAndSourceIDEqual(9, defaultWithdrawal);
+    deps.exchangeService.getSuccessfulWithdrawals.resolves([]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(2).resolves([
+      withdrawal1,
+      withdrawal2,
+      withdrawal3,
+    ]);
+
+    const withdrawal4 = uniqueObjectWithTimeAndSourceIDEqual(11, defaultWithdrawal);
+    const withdrawal5 = uniqueObjectWithTimeAndSourceIDEqual(17, defaultWithdrawal);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(3).resolves([withdrawal4, withdrawal5]);
+
     const withdrawal6 = uniqueObjectWithTimeAndSourceIDEqual(18, defaultWithdrawal);
-    deps.exchangeService.getSuccessfulWithdrawals.onCall(2).resolves([withdrawal6]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(4).resolves([withdrawal6]);
 
     const withdrawal7 = uniqueObjectWithTimeAndSourceIDEqual(19, defaultWithdrawal);
-    deps.exchangeService.getSuccessfulWithdrawals.onCall(3).resolves([withdrawal7]);
+    deps.exchangeService.getSuccessfulWithdrawals.onCall(5).resolves([withdrawal7]);
 
     // run
     const useCase = new IngressTraderExchange(deps);
@@ -554,10 +705,16 @@ describe('ingress activity', () => {
     expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
   });
 
+  it('ignore insufficient entries error', async () => {
+    deps.ingressFilledOrder.execute.rejects(new Error('Insufficient entries'));
+
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+  });
+
   test('calls ingressFilledOrder with past true', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
-
     sinon.assert.alwaysCalledWithMatch(deps.ingressFilledOrder.execute, { past: true });
   });
 

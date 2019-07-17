@@ -8,6 +8,7 @@ const mockExchangeService = {
   getPrice: sinon.stub(),
   getBTCValue: sinon.stub(),
   findMarketQuoteAsset: sinon.stub(),
+  getBalances: sinon.stub(),
 };
 
 // eslint-disable-next-line prefer-arrow-callback
