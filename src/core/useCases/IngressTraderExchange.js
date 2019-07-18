@@ -197,7 +197,7 @@ module.exports = class IngressTraderExchange {
           !timeOfFirstActivity
           || (items[0] && items[0].time < timeOfFirstActivity)
         );
-        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+        timeOfFirstActivity = items[0] && shouldSetTime ? items[0].time : timeOfFirstActivity;
 
         return items;
       });
@@ -222,7 +222,7 @@ module.exports = class IngressTraderExchange {
           !timeOfFirstActivity
           || (items[0] && items[0].time < timeOfFirstActivity)
         );
-        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+        timeOfFirstActivity = items[0] && shouldSetTime ? items[0].time : timeOfFirstActivity;
 
         return items;
       });
@@ -247,7 +247,7 @@ module.exports = class IngressTraderExchange {
           !timeOfFirstActivity
           || (items[0] && items[0].time < timeOfFirstActivity)
         );
-        timeOfFirstActivity = shouldSetTime ? items[0].time : timeOfFirstActivity;
+        timeOfFirstActivity = items[0] && shouldSetTime ? items[0].time : timeOfFirstActivity;
 
         return items;
       });

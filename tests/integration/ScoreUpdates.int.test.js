@@ -64,19 +64,19 @@ beforeEach(async () => {
   const mockExchangeService = new ExchangeService({});
 
   mockExchangeService.getFilledOrders
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultOrder]);
 
   mockExchangeService.getFilledOrders.resolves([]);
 
   mockExchangeService.getSuccessfulDeposits
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultDeposit]);
 
   mockExchangeService.getSuccessfulDeposits.resolves([]);
 
   mockExchangeService.getSuccessfulWithdrawals
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultWithdrawal]);
 
   mockExchangeService.getSuccessfulWithdrawals.resolves([]);

@@ -60,12 +60,12 @@ beforeEach(async () => {
   mockExchangeService.getFilledOrders.reset();
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultOrder]);
 
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultOrder, { exchangeID: 'bittrex' })]);
 
   mockExchangeService.getFilledOrders.resolves([]);
@@ -73,12 +73,12 @@ beforeEach(async () => {
   mockExchangeService.getSuccessfulDeposits.reset();
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultDeposit]);
 
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultDeposit, { exchangeID: 'bittrex' })]);
 
   mockExchangeService.getSuccessfulDeposits.resolves([]);
@@ -86,12 +86,12 @@ beforeEach(async () => {
   mockExchangeService.getSuccessfulWithdrawals.reset();
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultWithdrawal]);
 
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultWithdrawal, { exchangeID: 'bittrex' })]);
 
   mockExchangeService.getSuccessfulWithdrawals.resolves([]);

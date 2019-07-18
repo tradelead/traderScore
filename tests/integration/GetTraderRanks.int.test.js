@@ -60,12 +60,12 @@ beforeEach(async () => {
 
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultOrder]);
 
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultOrder, {
       exchangeID: 'bittrex',
       traderID: 'trader2',
@@ -78,12 +78,12 @@ beforeEach(async () => {
 
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultDeposit]);
 
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultDeposit, {
       exchangeID: 'bittrex',
       traderID: 'trader2',
@@ -95,12 +95,12 @@ beforeEach(async () => {
 
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'binance' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([defaultWithdrawal]);
 
   mockExchangeService.getSuccessfulWithdrawals
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
-    .onFirstCall()
+    .onCall(1)
     .resolves([Object.assign({}, defaultWithdrawal, {
       exchangeID: 'bittrex',
       traderID: 'trader2',

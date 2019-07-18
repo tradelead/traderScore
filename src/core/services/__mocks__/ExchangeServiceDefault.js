@@ -68,6 +68,7 @@ function oncePerTraderExchange(onceValueFn, defaultValue) {
 }
 
 mockExchangeService.getFilledOrders.reset();
+mockExchangeService.getFilledOrders.onFirstCall().resolves([]);
 mockExchangeService.getFilledOrders
   .callsFake(oncePerTraderExchange(
     ({ traderID, exchangeID }) => [
@@ -77,6 +78,7 @@ mockExchangeService.getFilledOrders
   ));
 
 mockExchangeService.getSuccessfulDeposits.reset();
+mockExchangeService.getSuccessfulDeposits.onFirstCall().resolves([]);
 mockExchangeService.getSuccessfulDeposits
   .callsFake(oncePerTraderExchange(
     ({ traderID, exchangeID }) => [
@@ -86,6 +88,7 @@ mockExchangeService.getSuccessfulDeposits
   ));
 
 mockExchangeService.getSuccessfulWithdrawals.reset();
+mockExchangeService.getSuccessfulWithdrawals.onFirstCall().resolves([]);
 mockExchangeService.getSuccessfulWithdrawals
   .callsFake(oncePerTraderExchange(
     ({ traderID, exchangeID }) => [

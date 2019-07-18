@@ -9,6 +9,7 @@ beforeEach(() => {
       incr: sinon.stub(),
       decr: sinon.stub(),
       snapshot: sinon.stub(),
+      traderExchangeExists: sinon.stub(),
     },
     exchangeService: {
       findMarketQuoteAsset: sinon.stub(),
