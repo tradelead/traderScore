@@ -1,4 +1,5 @@
 const sinon = require('sinon');
+const knexFactory = require('knex');
 
 const app = require('../../src/app.bootstrap');
 
@@ -9,6 +10,10 @@ const Withdrawal = require('../../src/core/models/Withdrawal');
 const ExchangeService = require('../../src/core/services/ExchangeService');
 
 const flushDbs = require('../flushDBs');
+
+const knexConfig = require('../../src/adapters/knex/knexfile');
+
+const knex = knexFactory(knexConfig.test);
 
 jest.mock('../../src/core/services/ExchangeService');
 
@@ -57,6 +62,16 @@ beforeEach(async () => {
 
   const mockExchangeService = new ExchangeService({});
 
+  mockExchangeService.getBalances.reset();
+  mockExchangeService.getBalances
+    .withArgs(sinon.match({ traderID: 'trader1', exchangeID: 'binance' }))
+    .resolves([
+      {
+        asset: 'USDT',
+        quantity: 1551.0729615,
+      },
+    ]);
+
   mockExchangeService.getFilledOrders.reset();
   mockExchangeService.getFilledOrders
     .withArgs(sinon.match({ exchangeID: 'binance' }))
@@ -74,7 +89,7 @@ beforeEach(async () => {
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'binance' }))
     .onCall(1)
-    .resolves([defaultDeposit]);
+    .resolves([]);
 
   mockExchangeService.getSuccessfulDeposits
     .withArgs(sinon.match({ exchangeID: 'bittrex' }))
@@ -147,10 +162,17 @@ beforeEach(async () => {
 });
 
 test('trader\'s first & second exchange ingress', async () => {
-  await app.useCases.ingressTraderExchange({
-    traderID: 'trader1',
-    exchangeID: 'binance',
-  });
+  try {
+    await app.useCases.ingressTraderExchange({
+      traderID: 'trader1',
+      exchangeID: 'binance',
+    });
+  } catch (e) {
+    const rows = await knex('portfolio').select('ID', 'quantity');
+    console.log('debug:portfolio state', rows);
+
+    throw e;
+  }
 
   await app.useCases.ingressTraderExchange({
     traderID: 'trader1',

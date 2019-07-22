@@ -16,6 +16,14 @@ module.exports = class PortfolioRepo {
     quantity,
     time,
   }) {
+    console.log('incr', {
+      traderID,
+      exchangeID,
+      asset,
+      quantity,
+      time,
+    });
+
     const traderExchangeAssetID = await this.createAssetIfNotExists({
       traderID,
       exchangeID,
@@ -37,6 +45,13 @@ module.exports = class PortfolioRepo {
     quantity,
     time,
   }) {
+    console.log('decr', {
+      traderID,
+      exchangeID,
+      asset,
+      quantity,
+      time,
+    });
     const assetObj = await this.getAsset({ traderID, exchangeID, asset });
 
     if (!assetObj) {
@@ -47,6 +62,7 @@ module.exports = class PortfolioRepo {
         quantity,
         time,
       };
+      console.error('cannot decr: trader doesn\'t own asset', info);
       throw new VError({ info }, 'cannot decr: trader doesn\'t own asset');
     }
 
@@ -57,6 +73,16 @@ module.exports = class PortfolioRepo {
       const lastQtyNum = new BigNumber(lastQty);
       const newQty = lastQtyNum.minus(quantity).toNumber();
       if (newQty < 0) {
+        console.log('cannot decr: insufficient asset quantity', {
+          traderID,
+          exchangeID,
+          asset,
+          quantity,
+          time,
+          newQty,
+          lastQty,
+          item,
+        });
         throw new Error('cannot decr: insufficient asset quantity');
       }
 
@@ -153,6 +179,12 @@ module.exports = class PortfolioRepo {
       .andWhere('time', '<=', msToMySQLFormat(time))
       .orderBy('time', 'desc')
       .limit(1);
+
+    const rows = await this.knexConn
+      .select('ID', 'quantity', 'time')
+      .from(this.tableName);
+
+    console.log('insertItem-test', traderExchangeAssetID, rows);
 
     const newQty = quantityModifier(lastItem);
 

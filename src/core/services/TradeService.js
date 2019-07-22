@@ -51,13 +51,18 @@ module.exports = class TradeService {
       throw new VError({ name: 'BadRequest', info: req }, humanErr);
     }
 
-    const entries = await this.entryService.getEntries({
-      traderID: value.traderID,
-      exchangeID: value.exchangeID,
-      asset: value.asset,
-      qty: value.exitQuantity,
-      exitTime: value.exitTime,
-    });
+    let entries;
+    try {
+      entries = await this.entryService.getEntries({
+        traderID: value.traderID,
+        exchangeID: value.exchangeID,
+        asset: value.asset,
+        qty: value.exitQuantity,
+        exitTime: value.exitTime,
+      });
+    } catch (e) {
+      throw e;
+    }
 
     const tradePromises = entries.map(async entry => this.createTradeFromEntry(
       { req: value, entry },

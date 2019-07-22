@@ -2,6 +2,11 @@
 const Joi = require('joi');
 const BigNumber = require('bignumber.js');
 
+const origTimeout = setTimeout;
+function sleep(ms) {
+  return new Promise(resolve => origTimeout(resolve, ms));
+}
+
 async function multiFetchLoop(f) {
   let startTime = 0;
   let hasMore = true;
@@ -264,7 +269,7 @@ module.exports = class IngressTraderExchange {
           exchangeID,
           asset,
           quantity,
-          time: timeOfFirstActivity || 0,
+          time: timeOfFirstActivity || 60001,
         };
 
         if (quantity > 0) {
@@ -305,23 +310,20 @@ module.exports = class IngressTraderExchange {
     const item = activity.pop();
 
     if (item) {
-      try {
-        if (item.type === 'order') {
-          ordersLeftNew -= 1;
-          await this.ingressFilledOrder.execute(item);
-        } else if (item.type === 'deposit') {
-          depositsLeftNew -= 1;
-          await this.ingressDeposit.execute(item);
-        } else if (item.type === 'withdrawal') {
-          withdrawalsLeftNew -= 1;
-          await this.ingressWithdrawal.execute(item);
-        }
-      } catch (e) {
-        if (e.message !== 'Insufficient entries') {
-          throw e;
-        } else {
-          console.error('Error Ignored:', e);
-        }
+      console.log('ingress', item.type);
+
+      if (item.type === 'order') {
+        await this.ingressFilledOrder.execute(item);
+        ordersLeftNew -= 1;
+        console.log('ingressed order');
+      } else if (item.type === 'deposit') {
+        await this.ingressDeposit.execute(item);
+        depositsLeftNew -= 1;
+        console.log('ingressed deposit');
+      } else if (item.type === 'withdrawal') {
+        await this.ingressWithdrawal.execute(item);
+        withdrawalsLeftNew -= 1;
+        console.log('ingressed withdrawal');
       }
     }
 
@@ -329,8 +331,12 @@ module.exports = class IngressTraderExchange {
       const activityNew = curActivity.slice(0);
 
       if (additionalItems && additionalItems.length > 0) {
-        const addTypeAndPast = obj => Object.assign({}, obj, { type, past: true });
-        const additionalItemsWithType = additionalItems.map(addTypeAndPast);
+        const addTypeAndOpts = obj => Object.assign({}, obj, {
+          type,
+          past: true,
+          catchInsufficientEntry: true,
+        });
+        const additionalItemsWithType = additionalItems.map(addTypeAndOpts);
         activityNew.push(...additionalItemsWithType);
       }
 

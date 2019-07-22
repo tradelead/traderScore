@@ -13,8 +13,9 @@ module.exports = class KnexUnitOfWork extends EventEmitter {
   }
 
   async complete() {
-    debug(`complete ${this.idShort()}`);
     const res = await this.trx.commit();
+    console.log(res);
+    debug(`complete ${this.idShort()}`);
     this.emit('complete');
     return res;
   }

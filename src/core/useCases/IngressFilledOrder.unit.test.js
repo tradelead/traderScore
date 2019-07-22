@@ -66,6 +66,16 @@ describe('execute', () => {
     return expect(unitOfWorkCompletedCalled).toBe(true);
   });
 
+  it('completes unit of work when newTrade fails with insufficient entries if option set', async () => {
+    unitOfWork.tradeService.newTrade.rejects(new Error('Insufficient entries'));
+
+    const useCase = new IngressFilledOrder(deps);
+    await useCase.execute({ ...defaultReq, catchInsufficientEntry: true });
+
+    const unitOfWorkCompletedCalled = unitOfWork.complete.called;
+    return expect(unitOfWorkCompletedCalled).toBe(true);
+  });
+
   it('rollback unit of work on orderService throws error', async () => {
     unitOfWork.orderService.add.rejects();
 

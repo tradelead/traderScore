@@ -9,6 +9,7 @@ const schema = Joi.object().keys({
   time: Joi.number().greater(0).required().label('Time'),
   quantity: Joi.number().positive().required().label('Quantity'),
   past: Joi.boolean().label('Past'),
+  catchInsufficientEntry: Joi.boolean().label('Catch Insufficient Entry'),
 }).unknown();
 
 module.exports = class IngressWithdrawal {
@@ -57,8 +58,16 @@ module.exports = class IngressWithdrawal {
       await unitOfWork.transferService.addWithdrawal(withdrawal);
       console.log('IngressWithdrawal: withdrawal saved', withdrawal);
 
-      const trades = await newTrade;
-      console.log('IngressWithdrawal: new trades', trades);
+      try {
+        const trades = await newTrade;
+        console.log('IngressWithdrawal: new trades', trades);
+      } catch (e) {
+        if (e.message !== 'Insufficient entries') {
+          throw e;
+        } else {
+          console.log('IngressFilledOrder: newTrade Error Ignored:', e);
+        }
+      }
 
       await unitOfWork.complete();
       console.log('IngressWithdrawal: unit of work complete');

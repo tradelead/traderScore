@@ -705,17 +705,18 @@ describe('ingress activity', () => {
     expect(activity).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
   });
 
-  it('ignore insufficient entries error', async () => {
-    deps.ingressFilledOrder.execute.rejects(new Error('Insufficient entries'));
-
-    const useCase = new IngressTraderExchange(deps);
-    await useCase.execute(defaultReq);
-  });
-
   test('calls ingressFilledOrder with past true', async () => {
     const useCase = new IngressTraderExchange(deps);
     await useCase.execute(defaultReq);
     sinon.assert.alwaysCalledWithMatch(deps.ingressFilledOrder.execute, { past: true });
+  });
+
+  it('calls ingressFilledOrder with catchInsufficientEntry', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+    sinon.assert.alwaysCalledWithMatch(deps.ingressFilledOrder.execute, {
+      catchInsufficientEntry: true,
+    });
   });
 
   test('calls ingressDeposit with past true', async () => {
@@ -730,6 +731,15 @@ describe('ingress activity', () => {
     await useCase.execute(defaultReq);
 
     sinon.assert.alwaysCalledWithMatch(deps.ingressWithdrawal.execute, { past: true });
+  });
+
+  it('calls ingressWithdrawal with catchInsufficientEntry', async () => {
+    const useCase = new IngressTraderExchange(deps);
+    await useCase.execute(defaultReq);
+
+    sinon.assert.alwaysCalledWithMatch(deps.ingressWithdrawal.execute, {
+      catchInsufficientEntry: true,
+    });
   });
 });
 

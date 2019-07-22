@@ -70,6 +70,15 @@ it('completes unit of work', async () => {
   sinon.assert.called(unitOfWork.complete);
 });
 
+it('completes unit of work when newTrade fails with insufficient entries if option set', async () => {
+  unitOfWork.tradeService.newTrade.rejects(new Error('Insufficient entries'));
+
+  const useCase = new IngressWithdrawal(deps);
+  await useCase.execute({ ...defaultReq, catchInsufficientEntry: true });
+
+  sinon.assert.called(unitOfWork.complete);
+});
+
 it('rollback unit of work on addWithdrawal error', async () => {
   unitOfWork.transferService.addWithdrawal.rejects();
 

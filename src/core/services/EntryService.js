@@ -97,6 +97,14 @@ module.exports = class EntryService {
     } while (entriesQty < qty && itemsLeft());
 
     if (entriesQty < qty) {
+      console.log('Insufficient entries', {
+        traderID,
+        exchangeID,
+        asset,
+        qty,
+        exitTime,
+      });
+
       throw new Error('Insufficient entries');
     }
 

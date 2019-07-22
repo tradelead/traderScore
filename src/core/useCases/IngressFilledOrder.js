@@ -17,6 +17,7 @@ const schema = Joi.object().keys({
     asset: Joi.string().max(8).uppercase().label('Fee Asset'),
   }),
   past: Joi.boolean().label('Past'),
+  catchInsufficientEntry: Joi.boolean().label('Catch Insufficient Entry'),
 }).unknown();
 
 module.exports = class IngressFilledOrder {
@@ -77,8 +78,18 @@ module.exports = class IngressFilledOrder {
 
       await saveOrder;
       console.log('IngressFilledOrder: order saved', order);
-      const trades = await newTrade;
-      console.log('IngressFilledOrder: new trades', trades);
+
+      try {
+        const trades = await newTrade;
+        console.log('IngressFilledOrder: new trades', trades);
+      } catch (e) {
+        if (e.message !== 'Insufficient entries') {
+          throw e;
+        } else {
+          console.log('IngressFilledOrder: newTrade Error Ignored:', e);
+        }
+      }
+
       await unitOfWork.complete();
       console.log('IngressFilledOrder: unit of work completed');
     } catch (e) {
