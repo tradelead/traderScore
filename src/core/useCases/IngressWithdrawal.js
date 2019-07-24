@@ -43,31 +43,30 @@ module.exports = class IngressWithdrawal {
         }
       }
 
-      const newTrade = unitOfWork.tradeService.newTrade({
-        sourceType: 'withdrawal',
-        sourceID: value.sourceID,
-        traderID: value.traderID,
-        exchangeID: value.exchangeID,
-        asset: value.asset,
-        exitQuantity: value.quantity,
-        exitTime: value.time,
-        disableScoring: value.past,
-        incrementScores: !value.past,
-      });
-
-      await unitOfWork.transferService.addWithdrawal(withdrawal);
-      console.log('IngressWithdrawal: withdrawal saved', withdrawal);
-
       try {
-        const trades = await newTrade;
+        const trades = await unitOfWork.tradeService.newTrade({
+          sourceType: 'withdrawal',
+          sourceID: value.sourceID,
+          traderID: value.traderID,
+          exchangeID: value.exchangeID,
+          asset: value.asset,
+          exitQuantity: value.quantity,
+          exitTime: value.time,
+          disableScoring: value.past,
+          incrementScores: !value.past,
+        });
         console.log('IngressWithdrawal: new trades', trades);
       } catch (e) {
+        console.log('throw newTrade error:', e.message);
         if (e.message !== 'Insufficient entries') {
           throw e;
         } else {
           console.log('IngressFilledOrder: newTrade Error Ignored:', e);
         }
       }
+
+      await unitOfWork.transferService.addWithdrawal(withdrawal);
+      console.log('IngressWithdrawal: withdrawal saved', withdrawal);
 
       await unitOfWork.complete();
       console.log('IngressWithdrawal: unit of work complete');

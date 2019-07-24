@@ -13,18 +13,15 @@ module.exports = class KnexUnitOfWork extends EventEmitter {
   }
 
   async complete() {
-    const res = await this.trx.commit();
-    console.log(res);
+    await this.trx.commit();
     debug(`complete ${this.idShort()}`);
     this.emit('complete');
-    return res;
   }
 
   async rollback() {
+    await this.trx.rollback();
     debug(`rollback ${this.idShort()}`);
-    const res = await this.trx.rollback();
     this.emit('rollback');
-    return res;
   }
 
   idShort() {

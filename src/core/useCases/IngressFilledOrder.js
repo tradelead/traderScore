@@ -64,31 +64,30 @@ module.exports = class IngressFilledOrder {
         tradeQty = order.quantity;
       }
 
-      const newTrade = unitOfWork.tradeService.newTrade({
-        sourceType: 'order',
-        sourceID: order.sourceID,
-        traderID: order.traderID,
-        exchangeID: order.exchangeID,
-        asset: tradeAsset,
-        exitQuantity: tradeQty,
-        exitTime: order.time,
-        disableScoring: value.past,
-        incrementScores: !value.past,
-      });
-
-      await saveOrder;
-      console.log('IngressFilledOrder: order saved', order);
-
       try {
-        const trades = await newTrade;
+        const trades = await unitOfWork.tradeService.newTrade({
+          sourceType: 'order',
+          sourceID: order.sourceID,
+          traderID: order.traderID,
+          exchangeID: order.exchangeID,
+          asset: tradeAsset,
+          exitQuantity: tradeQty,
+          exitTime: order.time,
+          disableScoring: value.past,
+          incrementScores: !value.past,
+        });
         console.log('IngressFilledOrder: new trades', trades);
       } catch (e) {
         if (e.message !== 'Insufficient entries') {
+          console.log('throw newTrade error:', e.message);
           throw e;
         } else {
           console.log('IngressFilledOrder: newTrade Error Ignored:', e);
         }
       }
+
+      await saveOrder;
+      console.log('IngressFilledOrder: order saved', order);
 
       await unitOfWork.complete();
       console.log('IngressFilledOrder: unit of work completed');
